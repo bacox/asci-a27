@@ -35,7 +35,16 @@ To additionally also install the dev-dependencies, run:
 pip install -r dev-requirements.txt
 ```
 
-You can then run the example simulation by executing `example.py` located in the simulation package.
+You can then run the example simulation by executing `example.py` located in the simulation package. If you are running from a terminal emulator, you might have to update the python path accordingly:
+
+### Unix
+```bash
+export PYTHONPATH=$PYTHONPATH:.
+```
+### Windows
+```cmd
+set PYTHONPATH=%PYTHONPATH%;. 
+```
 
 ## Troubleshooting
 
@@ -46,7 +55,7 @@ export CFLAGS=-I/usr/local/opt/openssl/include
 export LDFLAGS=-L/usr/local/opt/openssl/lib
 ```
 
-Mac M1/2 users:
+### Mac M1/2 users
 
 ```zsh
 export CFLAGS=-I/opt/homebrew/opt/openssl/include
