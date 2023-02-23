@@ -1,11 +1,8 @@
 from typing import List
 
-import mmh3
-import numpy as np
-
-from bami.lz.sketch.bloom import BloomFilter
-from bami.lz.sketch.peer_clock import ClockTable, PeerClock
 from bami.lz.reconcile import CompactReconciliationSet
+from bami.lz.sketch.bloom import BloomFilter
+from bami.lz.sketch.peer_clock import PeerClock
 from bami.lz.utils import *
 
 

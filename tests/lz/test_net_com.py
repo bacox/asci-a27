@@ -1,4 +1,4 @@
-from bami.lz.net_community import get_random_string
+from bami.lz.utils import get_random_string
 
 
 def test_ran_string():
