@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     logger = logging.getLogger()
     logger.info("🔥 <t=%.1f> simulation finished" % get_event_loop().time())
-    print("printing results")
+    logger.info("Printing results")
     for i in simulation.nodes:
         instance = simulation.nodes[i].overlays[0]
         od = collections.OrderedDict(sorted(instance.my_peer.records.items()))
