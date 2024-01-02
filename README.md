@@ -1,63 +1,130 @@
-# BAMI 🍜
+# Lab Template for A27
 
-[![Tests](https://github.com/grimadas/python-project/workflows/Tests/badge.svg)](https://github.com/grimadas/python-project/actions?workflow=Tests)
-[![Codecov](https://codecov.io/gh/grimadas/python-project/branch/master/graph/badge.svg)](https://codecov.io/gh/grimadas/python-project)
+This code serves as a foundational template for the ASCI course A27 - Fundamentals and Design of Blockchain-based Systems. It has been rigorously tested on Ubuntu 20.04 and MacOS 14, and should be compatible with Windows systems.
 
-> BAMI is short for Base Accounting Mechanisms and Interfaces.
+**Note:** Ensure that Python version 3.8 or higher is installed when running this code locally.
 
-The goal of BAMI is to provide system designers simple tools to build secure ledgers that store valuable information.
-BAMI has the following properties:
+## Documentation
 
-* **Tamper-resistance**. BAMI achieves tamper-resistance through organizing information in a chain and by entangling
-  information with each other.
-* **Inconsistency resolution**. BAMI has tools to quickly detect deliberate forks and accidental inconsistencies (e.g.,
-  as the result of a software bug). BAMI recovers from partitions in the network while ensuring availability and
-  eventual consistency.
-* **Reconciliation and Synchronization**. All stored information is organized in groups, which we name communities. A
-  community is identified by a public key and maintains a so-called community chain. Through a robust push-pull gossip
-  algorithm it is guaranteed that peers will eventually receive all the information within a single community.
+- [IPv8 Documentation](https://py-ipv8.readthedocs.io/en/latest/index.html)
+- [Asyncio Documentation](https://docs.python.org/3/library/asyncio.html): Asyncio is extensively utilized in this code's implementation.
 
-BAMI is build with the [IPv8 library](https://github.com/Tribler/py-ipv8). Check
-the [documentation](https://py-ipv8.readthedocs.io/en/latest/) for more details.
+## File Structure
 
-# Installation
+- **src:** Contains all the Python source files.
+- **src/algorithms:** Houses code for various distributed algorithms.
+- **topologies/default.yaml:** Lists the addresses of participating processes in the algorithm.
+- **Dockerfile:** Describes the image used by docker-compose.
+- **docker-compose.yml:** YAML file that describes the system for docker-compose.
+- **docker-compose.template.yml:** YAML file used as a template for the `src/util.py` script.
+- **run_echo.sh:** Script to run the echo example.
+- **run_election.sh:** Script to run the ring election example.
 
-In order to build and run the project, we advise you to use `pip` in combination with Python 3.11. To install
-using `pip`, run:
+## Topology File
+
+The topology file (located in `./topologies`) defines how nodes in the system are interconnected. It comprises a YAML file listing node IDs along with their corresponding connections to other nodes. To alter the number or type of nodes in a topology, adjust the `util.py` script.
+
+## Remarks
+
+1. This template is provided as a starting point with functioning messaging between distributed processes. You are encouraged to modify any of the files as per your requirements.
+2. Ensure the topology is aligned with the assignment specifications. The default `util.py` creates a ring topology. Modify the script if you need a different topology (e.g., fully-connected, sparse network).
+
+## Prerequisites
+
+- Docker
+- Docker-compose
+- (Python >= 3.8 if running locally)
+
+To install dependencies, use:
 
 ```bash
 pip install -r requirements.txt
-``` 
-
-To additionally also install the dev-dependencies, run:
-
-```basH
-pip install -r dev-requirements.txt
 ```
 
-You can then run the example simulation by executing `example.py` located in the simulation package. If you are running from a terminal emulator, you might have to update the python path accordingly:
+The expected output should be identical whether running with docker-compose or locally.
 
-### Unix
-```bash
-export PYTHONPATH=$PYTHONPATH:.
-```
-### Windows
-```cmd
-set PYTHONPATH=%PYTHONPATH%;. 
-```
+## Docker Examples
 
-## Troubleshooting
-
-In case you run into issues installing `aioquic` run the following commands before installation:
+### Echo Algorithm
 
 ```bash
-export CFLAGS=-I/usr/local/opt/openssl/include
-export LDFLAGS=-L/usr/local/opt/openssl/lib
+NUM_NODES=2
+python src/util.py $NUM_NODES topologies/echo.yaml echo
+docker compose build
+docker compose up
 ```
 
-### Mac M1/2 users
+**Expected Output:**
 
-```zsh
-export CFLAGS=-I/opt/homebrew/opt/openssl/include
-export LDFLAGS=-L/opt/homebrew/opt/openssl/bin
+```text
+in4150-python-template-node1-1  | [Node 1] Starting
+in4150-python-template-node0-1  | [Node 0] Starting
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 1
+in4150-python-template-node1-1  | [Node 1] Got a message from node: 0.   current counter: 2
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 3
+in4150-python-template-node1-1  | [Node 1] Got a message from node: 0.   current counter: 4
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 5
+in4150-python-template-node1-1  | [Node 1] Got a message from node: 0.   current counter: 6
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 7
+in4150-python-template-node1-1  | [Node 1] Got a message from node: 0.   current counter: 8
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 9
+in4150-python-template-node1-1  | Node 1 is stopping
+in4150-python-template-node1-1  | [Node 1] Got a message from node: 0.   current counter: 10
+in4150-python-template-node1-1  | [Node 1] Stopping algorithm
+in4150-python-template-node0-1  | Node 0 is stopping
+in4150-python-template-node0-1  | [Node 0] Got a message from node: 1.   current counter: 11
+in4150-python-template-node0-1  | [Node 0] Stopping algorithm
+in4150-python-template-node1-1 exited with code 0
+in4150-python-template-node0-1 exited with code 0
 ```
+
+### Ring Election Algorithm
+
+```bash
+NUM_NODES=4
+python src/util.py $NUM_NODES topologies/election.yaml election
+docker compose build
+docker compose up
+```
+
+**Expected Output:**
+
+```text
+in4150-python-template-node2-1  | [Node 2] Starting
+in4150-python-template-node0-1  | [Node 0] Starting
+in4150-python-template-node3-1  | [Node 3] Starting
+in4150-python-template-node1-1  | [Node 1] Starting
+in4150-python-template-node3-1  | [Node 3] Starting by selecting a node: 0
+in4150-python-template-node0-1  | [Node 0] Got a message from with elector id: 3
+in4150-python-template-node1-1  | [Node 1] Got a message from with elector id: 3
+in4150-python-template-node2-1  | [Node 2] Got a message from with elector id: 3
+in4150-python-template-node3-1  | [Node 3] Got a message from with elector id: 3
+in4150-python-template-node3-1  | [Node 3] we are elected!
+in4150-python-template-node3-1  | [Node 3] Sending message to terminate the algorithm!
+in4150-python-template-node0-1  | [Node 0] Stopping algorithm
+in4150-python-template-node1-1  | [Node 1] Stopping algorithm
+in4150-python-template-node2-1  | [Node 2] Stopping algorithm
+in4150-python-template-node3-1  | [Node 3] Stopping algorithm
+```
+
+## Local Examples
+
+The expected output is consistent with running through docker-compose.
+
+### Echo Algorithm
+
+```bash
+python src/run.py 0 topologies/echo.yaml echo &
+python src/run.py 1 topologies/echo.yaml echo &
+```
+
+### Ring Election Algorithm
+
+```bash
+python src/run.py 0 topologies/election.yaml election &
+python src/run.py 1 topologies/election.yaml election &
+python src/run.py 2 topologies/election.yaml election &
+python src/run.py 3 topologies/election.yaml election &
+```
+
+Make use of these commands to execute the respective algorithms locally.
