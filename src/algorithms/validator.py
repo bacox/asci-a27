@@ -36,7 +36,7 @@ class Validator(Blockchain):
         self.add_message_handler(Announcement, self.on_announcement)
 
     def on_start(self):
-        for _node_id, peer in self.nodes.items():
+        for peer in self.nodes.values():
             self.ez_send(peer, Announcement(False))
 
     @message_wrapper(Gossip)
