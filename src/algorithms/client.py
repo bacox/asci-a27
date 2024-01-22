@@ -1,3 +1,4 @@
+import json
 from ipv8.community import CommunitySettings
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 from dataclasses import dataclass
@@ -6,7 +7,10 @@ from ipv8.types import Peer
 
 from da_types import Blockchain, message_wrapper
 
+from binascii import hexlify, unhexlify
 
+def to_hex(bstr: bytes) -> str:
+    return hexlify(bstr).decode()
 # We are using a custom dataclass implementation.
 dataclass = overwrite_dataclass(dataclass)
 
@@ -82,6 +86,11 @@ class Client(Blockchain):
     @message_wrapper(Transaction)
     async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
         """Upon reception of a transaction."""
+
+        message = json.dumps({"key": "value", "key2": "value2"})
+        public_key = to_hex(self.my_peer.public_key.key_to_bin())
+        signature = to_hex(self.my_peer.key.signature(message.encode()))
+
         sender_id = self.node_id_from_peer(peer)
         print(
             f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
