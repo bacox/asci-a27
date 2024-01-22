@@ -42,6 +42,13 @@ class Validator(Blockchain):
         for peer in self.nodes.values():
             self.ez_send(peer, Announcement(False))
 
+    
+    def execute(self, transaction: Transaction):
+        pass
+
+    def create_initial_transaction(client: Peer):
+        pass
+
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
         """When a gossip message is received, pass it on to other validators and to clients."""
