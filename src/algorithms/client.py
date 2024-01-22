@@ -71,7 +71,7 @@ class Client(Blockchain):
             self.send_amount,
             [
                 self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1,
-                randint(1, self.balance),
+                randint(1, max(self.balance, 100)),
             ],
             delay=randint(2, 4),
             interval=randint(4, 10),
