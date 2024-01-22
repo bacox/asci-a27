@@ -10,8 +10,11 @@ from da_types import Blockchain, message_wrapper
 
 from binascii import hexlify, unhexlify
 
+
 def to_hex(bstr: bytes) -> str:
     return hexlify(bstr).decode()
+
+
 # We are using a custom dataclass implementation.
 dataclass = overwrite_dataclass(dataclass)
 
@@ -31,7 +34,7 @@ class Transaction:
 
     def create_hash(self) -> None:
         """Creates a hash out of the contents of the transaction."""
-        pass
+        self.hash = "hello world"
 
     #     self.hash = # TODO
 
@@ -69,17 +72,19 @@ class Client(Blockchain):
         self.register_task(
             "random_tx",
             self.send_amount,
-            [
-                self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1,
-                randint(1, max(self.balance, 100)),
-            ],
             delay=randint(2, 4),
             interval=randint(4, 10),
         )
 
-    def send_amount(self, target_id: int, amount: int):
-        """Send some to a target."""
-        if amount <= self.balance:
+    def send_amount(self, target_id: int = None, amount: int = None):
+        """Send some to a target. If target and amount are not specified, make it random."""
+        if target_id is None:
+            target_id = int(
+                self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
+            )
+        if amount is None:
+            amount = max(self.balance, randint(1, 100))
+        if amount <= self.balance and self.node_id != target_id:
             timestamp = int(time)
             transaction = Transaction(self.node_id, target_id, amount, timestamp)
             transaction.create_hash()
