@@ -10,15 +10,30 @@ from da_types import Blockchain, message_wrapper
 dataclass = overwrite_dataclass(dataclass)
 
 
-
 @dataclass(
     msg_id=2
 )  # The value 1 identifies this message and must be unique per community.
 class Transaction:
-    message_id: int
+    """Transaction message type."""
+
     hop_counter: int
+    sender_id: int
+    target_id: int
+    amount: int
+    hash: str = None
+
+    def create_hash(self) -> None:
+        """Creates a hash out of the contents of the transaction."""
+        pass
+
+    #     self.hash = # TODO
 
 
+@dataclass(msg_id=3)
+class Announcement:
+    """Announcement message type."""
+
+    is_client: bool
 
 
 class Client(Blockchain):
@@ -32,20 +47,26 @@ class Client(Blockchain):
         super().__init__(settings)
         self.history = {}
         self.validators = []
-        self.clients = []
+        # self.clients = []
         self.echo_counter = 0
-        self.add_message_handler(Gossip, self.on_message)
+        self.balance = 0
+        self.add_message_handler(Transaction, self.on_message)
 
     def on_start(self):
-        if self.node_id == 1:
-            #  Only node 1 starts
-            peer = self.nodes[0]
-            self.ez_send(peer, Gossip(self.echo_counter))
+        # start by announcing ourselves to our only known validator
+        peer = self.nodes[0]
+        self.ez_send(peer, Announcement(True))
 
-    @message_wrapper(Gossip)
-    async def on_message(self, peer: Peer, payload: Gossip) -> None:
+    def send(self):
+        pass
+
+    @message_wrapper(Transaction)
+    async def on_message(self, peer: Peer, payload: Transaction) -> None:
+        """Upon reception of a transaction."""
         sender_id = self.node_id_from_peer(peer)
-        print(f'[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}')
+        print(
+            f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
+        )
         if payload not in self.history:
             # broadcast
             payload.hop_counter += 1
@@ -54,6 +75,3 @@ class Client(Blockchain):
                 if val == peer:
                     continue
                 self.ez_send(val, payload)
-            
-
-        

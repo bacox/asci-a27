@@ -14,14 +14,17 @@ def get_algorithm(name: str) -> Blockchain:
         'echo': EchoAlgorithm,
         'election': RingElection,
         'blockchain': BlockchainNode,
-        'validator': Validator
+        "validator": Validator,
+        "client": Client,
     }
     if name not in algorithms.keys():
-        raise Exception(f'Cannot find select algorithm with name {name}')
+        raise Exception(f"Cannot find select algorithm with name {name}")
     return algorithms[name]
 
 
-async def start_communities(node_id, connections, algorithm, use_localhost=True) -> None:
+async def start_communities(
+    node_id, connections, algorithm, use_localhost=True
+) -> None:
     event = create_event_with_signals()
     base_port = 9090
     connections_updated = [(x, base_port + x) for x in connections]
@@ -52,9 +55,11 @@ if __name__ == "__main__":
         epilog="Designed for A27 Fundamentals and Design of Blockchain-based Systems",
     )
     parser.add_argument("node_id", type=int)
-    parser.add_argument("topology", type=str, nargs="?", default="topologies/default.yaml")
-    parser.add_argument("algorithm", type=str, nargs="?", default='echo')
-    parser.add_argument("-docker", action='store_true')
+    parser.add_argument(
+        "topology", type=str, nargs="?", default="topologies/default.yaml"
+    )
+    parser.add_argument("algorithm", type=str, nargs="?", default="echo")
+    parser.add_argument("-docker", action="store_true")
     args = parser.parse_args()
     node_id = args.node_id
 
