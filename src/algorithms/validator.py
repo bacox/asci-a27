@@ -29,16 +29,14 @@ class Validator(Blockchain):
     def __init__(self, settings: CommunitySettings) -> None:
         super().__init__(settings)
         self.history = {}
-        self.validators = []
+        self.validators = {}
         self.clients = {}  # dict of clientID: balance
         self.echo_counter = 0
         self.add_message_handler(Gossip, self.on_gossip)
         self.add_message_handler(Announcement, self.on_announcement)
 
     def on_start(self):
-        if self.node_id == 1:
-            #  Only node 1 starts
-            peer = self.nodes[0]
+        for _node_id, peer in self.nodes.items():
             self.ez_send(peer, Announcement(False))
 
     @message_wrapper(Gossip)
@@ -64,5 +62,5 @@ class Validator(Blockchain):
         else:
             self.validators[sender_id] = peer
         print(
-            f"Announcement received: peer {sender_id} is {'client' if payload.is_client else 'validator'}"
+            f"Announcement received: peer {peer} is {'client' if payload.is_client else 'validator'}"
         )
