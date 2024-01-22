@@ -1,6 +1,7 @@
 from ipv8.community import CommunitySettings
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 from dataclasses import dataclass
+from .client import Announcement, Transaction
 
 from ipv8.types import Peer
 
@@ -10,15 +11,12 @@ from da_types import Blockchain, message_wrapper
 dataclass = overwrite_dataclass(dataclass)
 
 
-
 @dataclass(
     msg_id=1
 )  # The value 1 identifies this message and must be unique per community.
 class Gossip:
     message_id: int
     hop_counter: int
-
-
 
 
 class Validator(Blockchain):
@@ -32,20 +30,23 @@ class Validator(Blockchain):
         super().__init__(settings)
         self.history = {}
         self.validators = []
-        self.clients = []
+        self.clients = {}  # dict of clientID: balance
         self.echo_counter = 0
-        self.add_message_handler(Gossip, self.on_message)
+        self.add_message_handler(Gossip, self.on_gossip)
+        self.add_message_handler(Announcement, self.on_announcement)
 
     def on_start(self):
         if self.node_id == 1:
             #  Only node 1 starts
             peer = self.nodes[0]
-            self.ez_send(peer, Gossip(self.echo_counter))
+            self.ez_send(peer, Announcement(False))
 
     @message_wrapper(Gossip)
-    async def on_message(self, peer: Peer, payload: Gossip) -> None:
+    async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
         sender_id = self.node_id_from_peer(peer)
-        print(f'[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}')
+        print(
+            f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
+        )
         if payload not in self.history:
             # broadcast
             payload.hop_counter += 1
@@ -54,6 +55,14 @@ class Validator(Blockchain):
                 if val == peer:
                     continue
                 self.ez_send(val, payload)
-            
 
-        
+    @message_wrapper(Announcement)
+    async def on_announcement(self, peer: Peer, payload: Announcement) -> None:
+        sender_id = self.node_id_from_peer(peer)
+        if payload.is_client:
+            self.clients[sender_id] = peer
+        else:
+            self.validators[sender_id] = peer
+        print(
+            f"Announcement received: peer {sender_id} is {'client' if payload.is_client else 'validator'}"
+        )
