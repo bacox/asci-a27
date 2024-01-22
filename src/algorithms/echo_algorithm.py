@@ -1,7 +1,10 @@
+from ipv8.community import CommunitySettings
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 from dataclasses import dataclass
 
-from da_types import *
+from ipv8.types import Peer
+
+from da_types import Blockchain, message_wrapper
 
 # We are using a custom dataclass implementation.
 dataclass = overwrite_dataclass(dataclass)
@@ -14,11 +17,11 @@ class MyMessage:
     counter: int
 
 
-class EchoAlgorithm(DistributedAlgorithm):
+class EchoAlgorithm(Blockchain):
     """_summary_
     Simple example that just echoes messages between two nodes
     Args:
-        DistributedAlgorithm (_type_): _description_
+        Blockchain (_type_): _description_
     """
 
     def __init__(self, settings: CommunitySettings) -> None:

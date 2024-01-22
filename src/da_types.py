@@ -17,8 +17,7 @@ def message_wrapper(*payloads: type[AnyPayload]) -> Callable[[LazyWrappedHandler
     return lazy_wrapper(*payloads)
 
 
-class DistributedAlgorithm(Community):
-    # @Todo: Make sure this is configurable
+class Blockchain(Community):
     community_id = b"\x05" * 20
 
     def __init__(self, settings: CommunitySettings) -> None:

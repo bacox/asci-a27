@@ -128,3 +128,6 @@ python src/run.py 3 topologies/election.yaml election &
 ```
 
 Make use of these commands to execute the respective algorithms locally.
+
+## Acknowledgements
+Special thanks to Bart Cox.

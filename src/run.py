@@ -5,9 +5,10 @@ from ipv8.configuration import ConfigBuilder, default_bootstrap_defs
 from ipv8.util import create_event_with_signals
 from ipv8_service import IPv8
 from algorithms import *
+from da_types import Blockchain
 
 
-def get_algorithm(name: str) -> DistributedAlgorithm:
+def get_algorithm(name: str) -> Blockchain:
     algorithms = {
         'echo': EchoAlgorithm,
         'election': RingElection,
@@ -26,7 +27,7 @@ async def start_communities(node_id, connections, algorithm, use_localhost=True)
     builder.add_key("my peer", "medium", f"ec{node_id}.pem")
     builder.set_port(node_port)
     builder.add_overlay(
-        "DA_Alg_Test",
+        "blockchain_community",
         "my peer",
         [],
         default_bootstrap_defs,
@@ -34,7 +35,7 @@ async def start_communities(node_id, connections, algorithm, use_localhost=True)
         [("started", node_id, connections_updated, event, use_localhost)],
     )
     ipv8_instance = IPv8(
-        builder.finalize(), extra_communities={"DA_Alg_Test": algorithm}
+        builder.finalize(), extra_communities={"blockchain_community": algorithm}
     )
     await ipv8_instance.start()
     await event.wait()
@@ -43,9 +44,9 @@ async def start_communities(node_id, connections, algorithm, use_localhost=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="Distributed Algorithms",
-        description="Code to execute distributed algorithms.",
-        epilog="written by Bart Cox (2023)",
+        prog="Blockchain",
+        description="Code to execute blockchain.",
+        epilog="Designed for A27 Fundamentals and Design of Blockchain-based Systems",
     )
     parser.add_argument("node_id", type=int)
     parser.add_argument("topology", type=str, nargs="?", default="topologies/default.yaml")

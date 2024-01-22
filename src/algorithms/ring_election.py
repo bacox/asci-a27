@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from ipv8.types import Peer
 
-from da_types import DistributedAlgorithm, message_wrapper
+from da_types import Blockchain, message_wrapper
 
 # We are using a custom dataclass implementation
 dataclass = overwrite_dataclass(dataclass)
@@ -27,12 +27,12 @@ class TerminationMessage:
     terminate: bool = True
 
 
-class RingElection(DistributedAlgorithm):
+class RingElection(Blockchain):
     """_summary_
     Implementation of Chang-Roberts algorithm, ring election in a unidirectional ring.
 
     Args:
-        DistributedAlgorithm (_type_): _description_
+        Blockchain (_type_): _description_
     """
 
     def __init__(self, settings: CommunitySettings) -> None:

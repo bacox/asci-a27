@@ -6,7 +6,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog='Scale the docker-compose file',
         description='Scale the number of nodes',
-        epilog='written by Bart Cox (2023)')
+        epilog='Designed for A27 Fundamentals and Design of Blockchain-based Systems')
     parser.add_argument('num_nodes', type=int)
     parser.add_argument('topology_file', type=str, nargs='?', default='topologies/ring.yaml')
     parser.add_argument('algorithm', type=str, nargs='?', default='echo')
