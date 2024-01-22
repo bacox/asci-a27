@@ -17,6 +17,7 @@ dataclass = overwrite_dataclass(dataclass)
 class Gossip:
     message_id: int
     hop_counter: int
+    transaction: Transaction
 
 
 class Validator(Blockchain):
@@ -34,6 +35,7 @@ class Validator(Blockchain):
         self.echo_counter = 0
         self.add_message_handler(Gossip, self.on_gossip)
         self.add_message_handler(Announcement, self.on_announcement)
+        self.add_message_handler(Transaction, self.on_transaction)
 
     def on_start(self):
         for peer in self.nodes.values():
@@ -64,3 +66,7 @@ class Validator(Blockchain):
         print(
             f"Announcement received: peer {peer} is {'client' if payload.is_client else 'validator'}"
         )
+
+    @message_wrapper(Transaction)
+    async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
+        sender_id = self.node_id_from_peer(peer)
