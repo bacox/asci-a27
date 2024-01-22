@@ -14,6 +14,7 @@ def get_algorithm(name: str) -> Blockchain:
         'echo': EchoAlgorithm,
         'election': RingElection,
         'blockchain': BlockchainNode,
+        'validator': Validator
     }
     if name not in algorithms.keys():
         raise Exception(f'Cannot find select algorithm with name {name}')

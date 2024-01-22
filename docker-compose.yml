@@ -10,10 +10,10 @@ services:
   node0:
     build: .
     environment:
-      ALGORITHM: election
+      ALGORITHM: validator
       EMPTY: null
       PID: 0
-      TOPOLOGY: topologies/election.yaml
+      TOPOLOGY: topologies/gossip.yaml
     networks:
       vpcbr:
         ipv4_address: 192.168.56.10
@@ -22,10 +22,10 @@ services:
   node1:
     build: .
     environment:
-      ALGORITHM: election
+      ALGORITHM: validator
       EMPTY: null
       PID: 1
-      TOPOLOGY: topologies/election.yaml
+      TOPOLOGY: topologies/gossip.yaml
     networks:
       vpcbr:
         ipv4_address: 192.168.56.11
@@ -34,10 +34,10 @@ services:
   node2:
     build: .
     environment:
-      ALGORITHM: election
+      ALGORITHM: client
       EMPTY: null
       PID: 2
-      TOPOLOGY: topologies/election.yaml
+      TOPOLOGY: topologies/gossip.yaml
     networks:
       vpcbr:
         ipv4_address: 192.168.56.12
@@ -46,10 +46,10 @@ services:
   node3:
     build: .
     environment:
-      ALGORITHM: election
+      ALGORITHM: client
       EMPTY: null
       PID: 3
-      TOPOLOGY: topologies/election.yaml
+      TOPOLOGY: topologies/gossip.yaml
     networks:
       vpcbr:
         ipv4_address: 192.168.56.13
