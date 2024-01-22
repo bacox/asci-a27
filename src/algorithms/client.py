@@ -90,9 +90,10 @@ class Client(Blockchain):
     async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
         """Upon reception of a transaction."""
 
-        message = json.dumps({"key": "value", "key2": "value2"})
-        public_key = to_hex(self.my_peer.public_key.key_to_bin())
-        signature = to_hex(self.my_peer.key.signature(message.encode()))
+        # To has messages not used right now
+        # message = json.dumps({"key": "value", "key2": "value2"})
+        # public_key = to_hex(self.my_peer.public_key.key_to_bin())
+        # signature = to_hex(self.my_peer.key.signature(message.encode()))
 
         sender_id = self.node_id_from_peer(peer)
         print(
