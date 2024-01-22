@@ -2,6 +2,7 @@ from ipv8.community import CommunitySettings
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 from dataclasses import dataclass
 from random import randint
+from time import time
 from ipv8.types import Peer
 
 from da_types import Blockchain, message_wrapper
@@ -20,6 +21,7 @@ class Transaction:
     sender_id: int
     target_id: int
     amount: int
+    timestamp: int
     nonce: int = 1
     hash: str = None
 
@@ -74,10 +76,11 @@ class Client(Blockchain):
     def send_amount(self, target_id: int, amount: int):
         """Send some to a target."""
         if amount <= self.balance:
+            timestamp = int(time)
+            transaction = Transaction(self.node_id, target_id, amount, timestamp)
+            transaction.create_hash()
             for validator in self.validators:
-                self.ez_send(
-                    self.nodes[validator], Transaction(self.node_id, target_id, amount)
-                )
+                self.ez_send(self.nodes[validator], transaction)
 
     @message_wrapper(Transaction)
     async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
