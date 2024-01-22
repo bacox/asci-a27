@@ -33,7 +33,7 @@ if __name__ == '__main__':
             n['environment']['ALGORITHM'] = args.algorithm
             nodes[f'node{i}'] = n
 
-            connections[i] = [(i + 1) % args.num_nodes, (i - 1) % args.num_nodes]
+            connections[i] = [j for j in range(args.num_nodes) if j != i]
 
         content['services'] = nodes
 
