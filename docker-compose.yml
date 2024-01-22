@@ -3,8 +3,8 @@ networks:
     driver: bridge
     ipam:
       config:
-      - gateway: 192.168.55.1
-        subnet: 192.168.55.0/24
+      - gateway: 192.168.56.1
+        subnet: 192.168.56.0/24
       driver: default
 services:
   node0:
@@ -16,7 +16,7 @@ services:
       TOPOLOGY: topologies/election.yaml
     networks:
       vpcbr:
-        ipv4_address: 192.168.55.10
+        ipv4_address: 192.168.56.10
     ports:
     - 9090:9090
   node1:
@@ -28,7 +28,7 @@ services:
       TOPOLOGY: topologies/election.yaml
     networks:
       vpcbr:
-        ipv4_address: 192.168.55.11
+        ipv4_address: 192.168.56.11
     ports:
     - 9091:9091
   node2:
@@ -40,7 +40,7 @@ services:
       TOPOLOGY: topologies/election.yaml
     networks:
       vpcbr:
-        ipv4_address: 192.168.55.12
+        ipv4_address: 192.168.56.12
     ports:
     - 9092:9092
   node3:
@@ -52,7 +52,7 @@ services:
       TOPOLOGY: topologies/election.yaml
     networks:
       vpcbr:
-        ipv4_address: 192.168.55.13
+        ipv4_address: 192.168.56.13
     ports:
     - 9093:9093
 version: '3.7'
