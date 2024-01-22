@@ -54,7 +54,10 @@ class Client(Blockchain):
 
     def on_start(self):
         # start by announcing ourselves to our only known validator
-        peer = self.nodes[0]
+        print(f"Client {self.node_id}: {self.connections=}, {self.nodes=}")
+        validator_index = list(self.nodes.keys())[0]
+        peer = self.nodes[validator_index]
+
         self.ez_send(peer, Announcement(True))
 
     def send(self):
