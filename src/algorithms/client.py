@@ -56,7 +56,7 @@ class Client(Blockchain):
 
     def __init__(self, settings: CommunitySettings) -> None:
         super().__init__(settings)
-        self.history = {}
+        self.history = {}  # dict of transaction hash : transaction
         self.validators = []
         self.echo_counter = 0
         self.local_balance = 0
@@ -87,13 +87,13 @@ class Client(Blockchain):
         if amount is None:
             amount = max(self.local_balance, randint(1, 100))
         if amount <= self.local_balance and self.node_id != target_id:
-            timestamp = int(time)
+            timestamp = int(time())
             transaction = Transaction(self.node_id, target_id, amount, timestamp)
             transaction.create_hash()
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
                 print(
-                    f"[Client {self.node_id}] send TX to node {self.node_id_from_peer(peer)}"
+                    f"[Client {self.node_id}] send TX to node {self.node_id_from_peer(target_id)}"
                 )
 
     @message_wrapper(Transaction)
@@ -112,10 +112,10 @@ class Client(Blockchain):
         print(f"[C{self.node_id}] Got a TX {transaction=}")
         if (
             transaction.target_id == self.node_id
-            and transaction.message_id not in self.history.keys()
+            and transaction.hash not in self.history.keys()
         ):
             # add transaction to history
-            self.history[transaction.message_id] = transaction
+            self.history[transaction.hash] = transaction
 
             if transaction.target_id == self.node_id:
                 # add amount to balance
@@ -126,7 +126,7 @@ class Client(Blockchain):
 
             # # broadcast
             # transaction.hop_counter += 1
-            # self.history[transaction.message_id] = transaction
+            # self.history[transaction.hash] = transaction
             # for val in self.validators:
             #     if val == peer:
             #         continue
