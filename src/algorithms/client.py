@@ -73,11 +73,12 @@ class Client(Blockchain):
             "random_tx",
             self.send_amount,
             delay=randint(2, 4),
-            interval=randint(4, 10),
+            interval=randint(2, 4),
         )
 
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
+        print(f'[C{self.node_id}] Triggering client send {self.local_balance=}')
         if target_id is None:
             target_id = int(
                 self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1

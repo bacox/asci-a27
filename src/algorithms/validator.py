@@ -98,7 +98,7 @@ class Validator(Blockchain):
             # send transaction to target client
             transaction = payload.transaction
             target_id = payload.transaction.target_id
-            for node_id, peer in self.nodes.items():
+            for node_id, peer in self.clients.items():
                 if node_id == target_id:
                     # pass
                     self.ez_send(peer, transaction)
