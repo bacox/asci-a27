@@ -106,7 +106,7 @@ class Client(Blockchain):
         # print(
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
-
+        print(f'[C{self.node_id}] Got a TX {transaction=}')
         if (
             transaction.target_id == self.node_id
             and transaction.message_id not in self.history.keys()

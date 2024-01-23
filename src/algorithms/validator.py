@@ -55,17 +55,18 @@ class Validator(Blockchain):
         print(f'{self.nodes}')
 
     def init_transaction(self):
-        for node_id, peer in self.nodes.items():
-            if node_id not in self.validators and node_id is not self.node_id:
-                # if the node_id was not in the validator database, add it
-                if node_id not in self.balances:
-                    self.balances[node_id] = starting_balance
-                transaction = Transaction(
-                    self.node_id, node_id, self.balances[node_id], int(time())
-                )
-                transaction.create_hash()
-                self.ez_send(peer, transaction)
-                print(f'Creating transaction: {transaction=}')
+        print('Init TX')
+        for node_id, peer in self.clients.items():
+            # if the node_id was not in the validator database, add it
+            if node_id not in self.balances:
+                self.balances[node_id] = starting_balance
+            transaction = Transaction(
+                self.node_id, node_id, self.balances[node_id], int(time())
+            )
+            transaction.create_hash()
+            print(f'Creating transaction: {transaction=}')
+            print(f'{self.clients=}')
+            self.ez_send(peer, transaction)
 
     def execute(self, transaction: Transaction):
         """Executes a transaction if the sender has enough balance."""
@@ -112,7 +113,7 @@ class Validator(Blockchain):
         else:
             self.validators[sender_id] = peer
         
-        if len(self.validators) + len(self.clients) >= len(self.nodes) and not self.can_start:
+        if len(self.validators) + len(self.clients) >= len(self.nodes) and len(self.clients) > 0 and not self.can_start:
             self.can_start = True
             self.init_transaction()
             
