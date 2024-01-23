@@ -43,6 +43,7 @@ class Transaction:
 class Announcement:
     """Announcement message type."""
 
+    sender_id: int
     is_client: bool
 
 
@@ -65,7 +66,7 @@ class Client(Blockchain):
         # start by announcing ourselves to our only known validator
         self.validators = list(self.nodes.keys())
         peer = self.nodes[self.validators[0]]
-        self.ez_send(peer, Announcement(True))
+        self.ez_send(peer, Announcement(self.node_id, True))
 
         # register a task that sends transactions to other clients at semi-random intervals
         # (target_id assumes that an even number of validators is defined as the first nodes)
@@ -78,7 +79,7 @@ class Client(Blockchain):
 
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
-        print(f'[C{self.node_id}] Triggering client send {self.local_balance=}')
+        print(f"[C{self.node_id}] Triggering client send {self.local_balance=}")
         if target_id is None:
             target_id = int(
                 self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
@@ -91,7 +92,9 @@ class Client(Blockchain):
             transaction.create_hash()
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
-                print(f'[Client {self.node_id}] send TX to node {self.node_id_from_peer(peer)}')
+                print(
+                    f"[Client {self.node_id}] send TX to node {self.node_id_from_peer(peer)}"
+                )
 
     @message_wrapper(Transaction)
     async def on_transaction(self, peer: Peer, transaction: Transaction) -> None:
@@ -106,7 +109,7 @@ class Client(Blockchain):
         # print(
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
-        print(f'[C{self.node_id}] Got a TX {transaction=}')
+        print(f"[C{self.node_id}] Got a TX {transaction=}")
         if (
             transaction.target_id == self.node_id
             and transaction.message_id not in self.history.keys()
