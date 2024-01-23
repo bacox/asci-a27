@@ -16,7 +16,7 @@ starting_balance = 1000
 
 
 @dataclass(
-    msg_id=1
+    msg_id=1, unsafe_hash=True
 )  # The value 1 identifies this message and must be unique per community.
 class Gossip:
     message_id: int
@@ -84,7 +84,7 @@ class Validator(Blockchain):
             # broadcast to other validators
             payload.hop_counter += 1
             self.history[payload.message_id] = payload
-            for val in self.validators:
+            for node_id, val in self.validators.items():
                 if val == peer:
                     continue
                 self.ez_send(val, payload)

@@ -20,8 +20,8 @@ dataclass = overwrite_dataclass(dataclass)
 
 
 @dataclass(
-    msg_id=2
-)  # The value 1 identifies this message and must be unique per community.
+    msg_id=2, unsafe_hash=True
+)  # frozen makes the class immutable, allowing it to be hashable
 class Transaction:
     """Transaction message type."""
 
@@ -30,7 +30,7 @@ class Transaction:
     amount: int
     timestamp: int
     nonce: int = 1
-    hash: str = None
+    hash: str = "None"
 
     def create_hash(self) -> None:
         """Creates a hash out of the contents of the transaction."""
@@ -76,6 +76,10 @@ class Client(Blockchain):
             interval=randint(4, 10),
         )
 
+    def get_balance(self):
+        """Request the balance from the validators."""
+        pass
+
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
         if target_id is None:
@@ -92,7 +96,7 @@ class Client(Blockchain):
                 self.ez_send(self.nodes[validator], transaction)
 
     @message_wrapper(Transaction)
-    async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
+    async def on_transaction(self, peer: Peer, transaction: Transaction) -> None:
         """Upon reception of a transaction."""
 
         # To has messages not used right now
@@ -100,17 +104,25 @@ class Client(Blockchain):
         # public_key = to_hex(self.my_peer.public_key.key_to_bin())
         # signature = to_hex(self.my_peer.key.signature(message.encode()))
 
-        sender_id = self.node_id_from_peer(peer)
-        print(
-            f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
-        )
-        if payload not in self.history:
-            # add amount to balance and add transaction to history
+        # sender_id = self.node_id_from_peer(peer)
+        # print(
+        #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
+        # )
 
-            # broadcast
-            payload.hop_counter += 1
-            self.history[payload.message_id] = payload
-            for val in self.validators:
-                if val == peer:
-                    continue
-                self.ez_send(val, payload)
+        if (
+            transaction.target_id == self.node_id
+            and transaction.message_id not in self.history
+        ):
+            # add transaction to history
+            self.history[transaction.message_id] = transaction
+
+            # add amount to balance
+            self.balance += transaction.amount
+
+            # # broadcast
+            # transaction.hop_counter += 1
+            # self.history[transaction.message_id] = transaction
+            # for val in self.validators:
+            #     if val == peer:
+            #         continue
+            #     self.ez_send(val, transaction)
