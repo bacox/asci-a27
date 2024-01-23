@@ -58,7 +58,7 @@ class Client(Blockchain):
         self.history = {}
         self.validators = []
         self.echo_counter = 0
-        self.balance = 0
+        self.local_balance = 0
         self.add_message_handler(Transaction, self.on_transaction)
 
     def on_start(self):
@@ -76,10 +76,6 @@ class Client(Blockchain):
             interval=randint(4, 10),
         )
 
-    def get_balance(self):
-        """Request the balance from the validators."""
-        pass
-
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
         if target_id is None:
@@ -87,8 +83,8 @@ class Client(Blockchain):
                 self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
             )
         if amount is None:
-            amount = max(self.balance, randint(1, 100))
-        if amount <= self.balance and self.node_id != target_id:
+            amount = max(self.local_balance, randint(1, 100))
+        if amount <= self.local_balance and self.node_id != target_id:
             timestamp = int(time)
             transaction = Transaction(self.node_id, target_id, amount, timestamp)
             transaction.create_hash()
@@ -116,8 +112,12 @@ class Client(Blockchain):
             # add transaction to history
             self.history[transaction.message_id] = transaction
 
-            # add amount to balance
-            self.balance += transaction.amount
+            if transaction.target_id == self.node_id:
+                # add amount to balance
+                self.local_balance += transaction.amount
+            elif transaction.sender_id == self.node_id:
+                # deduct from balance
+                self.local_balance -= transaction.amount
 
             # # broadcast
             # transaction.hop_counter += 1

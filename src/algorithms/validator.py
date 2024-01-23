@@ -76,10 +76,10 @@ class Validator(Blockchain):
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
         """When a gossip message is received, pass it on to other validators and to clients."""
-        sender_id = self.node_id_from_peer(peer)
-        print(
-            f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
-        )
+        # sender_id = self.node_id_from_peer(peer)
+        # print(
+        #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
+        # )
         if payload not in self.history:
             # broadcast to other validators
             payload.hop_counter += 1
