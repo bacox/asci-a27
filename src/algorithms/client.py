@@ -90,6 +90,7 @@ class Client(Blockchain):
             transaction.create_hash()
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
+                print(f'[Client {self.node_id}] send TX to node {self.node_id_from_peer(peer)}')
 
     @message_wrapper(Transaction)
     async def on_transaction(self, peer: Peer, transaction: Transaction) -> None:
@@ -107,7 +108,7 @@ class Client(Blockchain):
 
         if (
             transaction.target_id == self.node_id
-            and transaction.message_id not in self.history
+            and transaction.message_id not in self.history.keys()
         ):
             # add transaction to history
             self.history[transaction.message_id] = transaction

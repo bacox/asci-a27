@@ -39,6 +39,7 @@ class Validator(Blockchain):
         self.balances = {}  # dict of nodeID: balance
         self.echo_counter = 0
         self.transaction_backlog = []
+        self.can_start = False
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
@@ -51,8 +52,11 @@ class Validator(Blockchain):
         for peer in self.nodes.values():
             self.ez_send(peer, Announcement(False))
         # set the initial values
+        print(f'{self.nodes}')
+
+    def init_transaction(self):
         for node_id, peer in self.nodes.items():
-            if node_id not in self.validators:
+            if node_id not in self.validators and node_id is not self.node_id:
                 # if the node_id was not in the validator database, add it
                 if node_id not in self.balances:
                     self.balances[node_id] = starting_balance
@@ -61,6 +65,7 @@ class Validator(Blockchain):
                 )
                 transaction.create_hash()
                 self.ez_send(peer, transaction)
+                print(f'Creating transaction: {transaction=}')
 
     def execute(self, transaction: Transaction):
         """Executes a transaction if the sender has enough balance."""
@@ -80,7 +85,9 @@ class Validator(Blockchain):
         # print(
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
-        if payload not in self.history:
+
+        if payload.message_id not in list(self.history.keys()):
+            print(f'[Validator {self.node_id}] {len(self.history)=}')
             # broadcast to other validators
             payload.hop_counter += 1
             self.history[payload.message_id] = payload
@@ -93,6 +100,7 @@ class Validator(Blockchain):
             target_id = payload.transaction.target_id
             for node_id, peer in self.nodes.items():
                 if node_id == target_id:
+                    # pass
                     self.ez_send(peer, transaction)
 
     @message_wrapper(Announcement)
@@ -103,6 +111,12 @@ class Validator(Blockchain):
             self.clients[sender_id] = peer
         else:
             self.validators[sender_id] = peer
+        
+        if len(self.validators) + len(self.clients) >= len(self.nodes) and not self.can_start:
+            self.can_start = True
+            self.init_transaction()
+            
+        # print(f'{len(self.validators) + len(self.clients) >= len(self.nodes)}')
         print(
             f"Announcement received: peer {peer} is {'client' if payload.is_client else 'validator'}"
         )
@@ -110,6 +124,7 @@ class Validator(Blockchain):
     @message_wrapper(Transaction)
     async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
         """When a transaction message is received, broadcast it on as a gossip message."""
+        print(f'[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)} with id {payload.timestamp}')
         gossip_message = Gossip(
             randint(0, 1e9), 0, payload
         )  # TODO use hash as message id instead of random integer
