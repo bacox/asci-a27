@@ -1,3 +1,4 @@
+from typing import List
 from ipv8.community import CommunitySettings
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 from dataclasses import dataclass
@@ -38,7 +39,9 @@ class Validator(Blockchain):
         self.clients = {}  # dict of nodeID : peer
         self.balances = {}  # dict of nodeID: balance
         self.echo_counter = 0
-        self.transaction_backlog = []
+
+        self.pending_transactions : List[Transaction] = []
+        self.finalized_transactions : List[Transaction]= []
         self.can_start = False
 
         # register the handlers
@@ -54,6 +57,19 @@ class Validator(Blockchain):
         # set the initial values
         print(f"{self.nodes}")
 
+        self.register_task("check_txs", self.check_transactions, delay=2, interval=1)
+
+    def check_transactions(self):
+        print(f'Checking transactions')
+        for tx in self.pending_transactions:
+            if self.balances[tx.sender_id] - tx.amount >= 0:
+                print('Exec TX')
+                self.balances[tx.sender_id] -= tx.amount
+                self.balances[tx.target_id] += tx.amount
+                self.pending_transactions.remove(tx)
+                self.finalized_transactions.append(tx)
+
+
     def init_transaction(self):
         print("Init TX")
         for node_id, peer in self.clients.items():
@@ -68,16 +84,16 @@ class Validator(Blockchain):
             print(f"{self.clients=}")
             self.ez_send(peer, transaction)
 
-    def execute(self, transaction: Transaction):
-        """Executes a transaction if the sender has enough balance."""
-        if self.balances[transaction.sender_id] >= transaction.amount:
-            self.balances[transaction.sender_id] -= transaction.amount
-            self.balances[transaction.target_id] += transaction.amount
-        else:
-            self.transaction_backlog.append(transaction)
-            raise ValueError(
-                f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
-            )
+    # def execute(self, transaction: Transaction):
+    #     """Executes a transaction if the sender has enough balance."""
+    #     if self.balances[transaction.sender_id] >= transaction.amount:
+    #         self.balances[transaction.sender_id] -= transaction.amount
+    #         self.balances[transaction.target_id] += transaction.amount
+    #     else:
+    #         self.transaction_backlog.append(transaction)
+    #         raise ValueError(
+    #             f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
+            # )
 
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
@@ -109,7 +125,14 @@ class Validator(Blockchain):
         """When an announcement message is received, register it as a fellow validator or client."""
         sender_id = payload.sender_id
         if payload.is_client:
-            self.clients[sender_id] = peer
+            if sender_id not in self.clients:
+                
+                self.clients[sender_id] = peer
+                self.balances[sender_id] = 0 if sender_id not in self.balances else self.balances[sender_id]
+                # self.ez_send()
+                for val in self.validators.values():
+                    self.ez_send(val, payload)
+
         else:
             self.validators[sender_id] = peer
 
@@ -132,6 +155,9 @@ class Validator(Blockchain):
         print(
             f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)} with id {payload.timestamp}"
         )
+
+        if payload not in self.finalized_transactions:
+            self.pending_transactions.append(payload)
         gossip_message = Gossip(
             randint(0, 1e9), 0, payload
         )  # TODO use hash as message id instead of random integer

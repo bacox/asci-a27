@@ -73,6 +73,7 @@ class BlockchainNode(Blockchain):
         self.register_task("check_txs", self.check_transactions, delay=2, interval=1)
 
     def check_transactions(self):
+        print(f'Checking transactions')
         for tx in self.pending_txs:
             if self.balances[tx.sender] - tx.amount >= 0:
                 self.balances[tx.sender] -= tx.amount
