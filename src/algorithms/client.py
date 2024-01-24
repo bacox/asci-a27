@@ -28,7 +28,6 @@ class Client(Blockchain):
         super().__init__(settings)
         self.history: list[TransactionBody] = []
         self.validators = []
-        self.echo_counter = 0
         self.local_balance = 0
         self.send_counter = 0
         self.address_book = all_clients

@@ -1,4 +1,5 @@
 from typing import List
+from time import time
 
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
@@ -23,13 +24,16 @@ class Validator(Blockchain):
         self.validators = {}  # dict of nodeID : peer
         self.clients = {}  # dict of nodeID : peer
         self.balances = defaultdict(lambda: 0)  # dict of nodeID: balance
-        self.echo_counter = 0
-
         self.buffered_transactions: list[TransactionBody] = []
         self.pending_transactions: list[TransactionBody] = []
         self.finalized_transactions: dict[bytes, list[TransactionBody]] = {}
         self.can_start = False
         self.receive_lock = RLock()
+
+        # elections
+        self.time_since_election = int(time())
+        self.in_elections = False
+        self.available_stake = 100
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
@@ -45,10 +49,7 @@ class Validator(Blockchain):
 
         # register tasks
         self.register_task(
-            "execute_transactions",
-            self.execute_transactions,
-            delay=4,
-            interval=3
+            "execute_transactions", self.execute_transactions, delay=4, interval=3
         )
         self.register_task(
             "send_buffered_transactions",
@@ -64,9 +65,7 @@ class Validator(Blockchain):
             # if the node_id was not in the validator database, add it
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
-            transaction = TransactionBody(
-                -1, node_id, starting_balance, 0
-            )
+            transaction = TransactionBody(-1, node_id, starting_balance, 0)
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
             self.buffered_transactions.append(transaction)
@@ -79,20 +78,27 @@ class Validator(Blockchain):
     #     for tx in self.pending_transactions:
     #         self.execute_transaction(tx)
 
-    # TODO only execute if we're leader, produces blockheader
-    # or only execute if we have block finality?
+    # TODO only execute if we have block finality
     def execute_transactions(self):
         """Executes a set of transactions if approved"""
         # transactions = self.pending_transactions:
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
+<<<<<<< HEAD
         # print(f'Executing {len(transactions)} -> {transactions}')
         for transaction in transactions:         
+=======
+        for transaction in transactions:
+>>>>>>> ac6247a65ef450863538b5595f00ddd3583a3a86
             if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
-                print(f'Executing special {transaction=}')
+                print(f"Executing special {transaction=}")
             elif self.balances[transaction.sender_id] >= transaction.amount:
+<<<<<<< HEAD
                 # print(f'Executing {transaction=}')
+=======
+                print(f"Executing {transaction=}")
+>>>>>>> ac6247a65ef450863538b5595f00ddd3583a3a86
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
             else:
@@ -103,7 +109,6 @@ class Validator(Blockchain):
                 self.pending_transactions.append(transaction)
 
             # send transaction to target client
-            # TODO check if we still want to do it like that, or clients just request their balance
             target_id = transaction.target_id
             sender_id = transaction.sender_id
 
@@ -139,8 +144,8 @@ class Validator(Blockchain):
             if tx not in self.pending_transactions:
                 self.pending_transactions.append(tx)
                 to_gossip.append(tx)
-        
-        if len(to_gossip):
+
+        if len(to_gossip) > 0:
             gossip_obj = Gossip(to_gossip)
             for val in self.validators.values():
                 if val == peer:
