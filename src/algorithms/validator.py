@@ -101,19 +101,20 @@ class Validator(Blockchain):
 
     def send_buffered_transactions(self):
         """Function to broadcast the buffered transactions on the network."""
-        # get all buffered transactions
-        for transaction in self.buffered_transactions:
-            if transaction not in self.pending_transactions:
-                self.pending_transactions.append(transaction)
+        with self.receive_lock:
+            # get all buffered transactions
+            for transaction in self.buffered_transactions:
+                if transaction not in self.pending_transactions:
+                    self.pending_transactions.append(transaction)
 
-        # bundle the valid transactions in a gossip and send it on the network
-        gossip_message = Gossip(self.buffered_transactions)
-        gossip_message.create_message_id()
-        for peer in self.validators.values():
-            self.ez_send(peer, gossip_message)
+            # bundle the valid transactions in a gossip and send it on the network
+            gossip_message = Gossip(self.buffered_transactions)
+            gossip_message.create_message_id()
+            for peer in self.validators.values():
+                self.ez_send(peer, gossip_message)
 
-        print(f"Sending {len(self.buffered_transactions)=}")
-        self.buffered_transactions = []
+            print(f"Sending {len(self.buffered_transactions)=}")
+            self.buffered_transactions = []
 
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
