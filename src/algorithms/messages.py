@@ -31,6 +31,7 @@ class TransactionBody:
     sender_id: int
     target_id: int
     amount: int
+    message_id: int  # every node can keep their own counter for this
 
 
 @dataclass(msg_id=4, unsafe_hash=True)

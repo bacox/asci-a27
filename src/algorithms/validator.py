@@ -58,7 +58,7 @@ class Validator(Blockchain):
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
             transaction = TransactionBody(
-                self.node_id, node_id, self.balances[node_id], int(time())
+                self.node_id, node_id, self.balances[node_id], int(time()), 0
             )
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
@@ -149,10 +149,27 @@ class Validator(Blockchain):
             f"Announcement received: peer {peer} is {'client' if payload.is_client else 'validator'}"
         )
 
+    def is_new_transaction(self, transaction: TransactionBody) -> bool:
+        """Function to check if a transaction is not yet in buffered, pending or finalized transactions."""
+
+        # first check if transaction is in the buffer
+        if transaction in self.buffered_transactions:
+            return False
+
+        # then check if a transaction is in the pending
+        if transaction in list(self.pending_transactions.values()):
+            return False
+
+        # least likely: a transaction has already been finalized
+        if transaction in list(self.finalized_transactions.values()):
+            return False
+
+        return True
+
     @message_wrapper(TransactionBody)
     async def on_transaction(self, peer: Peer, payload: TransactionBody) -> None:
         """When a transaction message is received from a client, add it to the buffer to be gossiped it to the rest of the network."""
         print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
 
-        if payload not in self.buffered_transactions:
+        if self.is_new_transaction(payload):
             self.buffered_transactions.append(payload)
