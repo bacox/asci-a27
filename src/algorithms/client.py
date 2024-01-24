@@ -1,5 +1,4 @@
 from random import randint
-from time import time
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
 
