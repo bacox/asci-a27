@@ -5,6 +5,13 @@ from hashlib import sha256
 from ipv8.messaging.serialization import default_serializer
 from ipv8.messaging.payload_dataclass import overwrite_dataclass
 
+
+def create_hash(item, fmt="payload") -> bytes:
+    """Creates a hash out of the contents of the item."""
+    transaction_package = default_serializer.pack(fmt=fmt, item=item)
+    return sha256(transaction_package).digest()
+
+
 # We are using a custom dataclass implementation.
 dataclass = overwrite_dataclass(dataclass)
 
@@ -30,9 +37,12 @@ class TransactionBody:
 class Gossip:
     """A Gossip message, passed along to communicate pending transactions."""
 
-    message_id: int
     transactions: [TransactionBody]
     hop_counter: int = 0
+    message_id: bytes = None
+
+    def create_message_id(self):
+        self.message_id = create_hash(self.transactions)
 
 
 @dataclass(msg_id=3, unsafe_hash=True)
@@ -41,9 +51,7 @@ class BlockHeader:
 
     transactions: [TransactionBody]
     timestamp: int
-    hash: str = None
+    hash: bytes = None
 
     def create_hash(self) -> None:
-        """Creates a hash out of the contents of the transaction."""
-        transaction_package = default_serializer.pack("payload", self)
-        self.hash = sha256(transaction_package).digest()
+        self.hash = create_hash(self)
