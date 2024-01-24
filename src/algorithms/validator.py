@@ -1,28 +1,15 @@
 from typing import List
 from ipv8.community import CommunitySettings
-from ipv8.messaging.payload_dataclass import overwrite_dataclass
-from dataclasses import dataclass
 from random import randint
 from time import time
-from .client import Announcement, Transaction
+from .messages import Announcement, TransactionBody, Gossip, BlockHeader
 
 from ipv8.types import Peer
 
 from da_types import Blockchain, message_wrapper
 
-# We are using a custom dataclass implementation.
-dataclass = overwrite_dataclass(dataclass)
 
 starting_balance = 1000
-
-
-@dataclass(
-    msg_id=1, unsafe_hash=True
-)  # The value 1 identifies this message and must be unique per community.
-class Gossip:
-    message_id: int
-    hop_counter: int
-    transaction: Transaction
 
 
 class Validator(Blockchain):
@@ -40,15 +27,15 @@ class Validator(Blockchain):
         self.balances = {}  # dict of nodeID: balance
         self.echo_counter = 0
 
-        self.pending_transactions : List[Transaction] = []
-        self.finalized_transactions : List[Transaction]= []
+        self.buffered_transactions: List[TransactionBody] = []
+        self.pending_transactions: List[TransactionBody] = []
+        self.finalized_transactions: List[TransactionBody] = []
         self.can_start = False
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
         self.add_message_handler(Announcement, self.on_announcement)
-        self.add_message_handler(Transaction, self.on_transaction)
-        # TODO backlog handler with exponential backoff
+        self.add_message_handler(TransactionBody, self.on_transaction)
 
     def on_start(self):
         # announce ourselves to the other nodes as a validator
@@ -58,32 +45,55 @@ class Validator(Blockchain):
         print(f"{self.nodes}")
 
         self.register_task("check_txs", self.check_transactions, delay=2, interval=1)
+        self.register_task(
+            "send_buffered_transactions",
+            self.send_buffered_transactions,
+            delay=5,
+            interval=3,
+        )
 
     def check_transactions(self):
-        print(f'Checking transactions')
+        """Checks pending transactions and attempts to execute if possible."""
+        print("Checking transactions")
         for tx in self.pending_transactions:
             if self.balances[tx.sender_id] - tx.amount >= 0:
-                print('Exec TX')
+                print("Exec TX")
+                # TODO move to separate execution function that only gets executed if validator is leader
+                # the pending list should be communicated among validators
                 self.balances[tx.sender_id] -= tx.amount
                 self.balances[tx.target_id] += tx.amount
                 self.pending_transactions.remove(tx)
                 self.finalized_transactions.append(tx)
 
-
     def init_transaction(self):
+        """The init transactions are executed after the announcements have been completed."""
         print("Init TX")
         for node_id, peer in self.clients.items():
             # if the node_id was not in the validator database, add it
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
-            transaction = Transaction(
+            transaction = TransactionBody(
                 self.node_id, node_id, self.balances[node_id], int(time())
             )
-            transaction.create_hash()
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
             self.ez_send(peer, transaction)
 
+    def send_buffered_transactions(self):
+        """Function to broadcast the buffered transactions on the network."""
+
+        transactions_to_send = self.buffered_transactions
+        if len(transactions_to_send) > 0:
+            print(f"Sending {len(transactions_to_send)=}")
+            # TODO make a unique message ID
+            gossip_message = Gossip(ID, transactions_to_send)
+            for peer in self.validators.values():
+                self.ez_send(peer, gossip_message)
+            self.pending_transactions += transactions_to_send
+            self.buffered_transactions = []
+
+    # TODO only execute if we're leader, produces blockheader
+    # or only execute if we have block finality?
     # def execute(self, transaction: Transaction):
     #     """Executes a transaction if the sender has enough balance."""
     #     if self.balances[transaction.sender_id] >= transaction.amount:
@@ -93,7 +103,7 @@ class Validator(Blockchain):
     #         self.transaction_backlog.append(transaction)
     #         raise ValueError(
     #             f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
-            # )
+    # )
 
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
@@ -103,7 +113,7 @@ class Validator(Blockchain):
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
 
-        if payload.message_id not in list(self.history.keys()):
+        if payload not in self.pending_transactions:
             print(f"[Validator {self.node_id}] {len(self.history)=}")
             # broadcast to other validators
             payload.hop_counter += 1
@@ -126,10 +136,11 @@ class Validator(Blockchain):
         sender_id = payload.sender_id
         if payload.is_client:
             if sender_id not in self.clients:
-                
                 self.clients[sender_id] = peer
-                self.balances[sender_id] = 0 if sender_id not in self.balances else self.balances[sender_id]
-                # self.ez_send()
+                self.balances[sender_id] = (
+                    0 if sender_id not in self.balances else self.balances[sender_id]
+                )
+                # broadcast the announcement so other validators get the client as well
                 for val in self.validators.values():
                     self.ez_send(val, payload)
 
@@ -149,17 +160,10 @@ class Validator(Blockchain):
             f"Announcement received: peer {peer} is {'client' if payload.is_client else 'validator'}"
         )
 
-    @message_wrapper(Transaction)
-    async def on_transaction(self, peer: Peer, payload: Transaction) -> None:
-        """When a transaction message is received, broadcast it on as a gossip message."""
-        print(
-            f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)} with id {payload.timestamp}"
-        )
+    @message_wrapper(TransactionBody)
+    async def on_transaction(self, peer: Peer, payload: TransactionBody) -> None:
+        """When a transaction message is received from a client, add it to the buffer to be gossiped it to the rest of the network."""
+        print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
 
-        if payload not in self.finalized_transactions:
-            self.pending_transactions.append(payload)
-        gossip_message = Gossip(
-            randint(0, 1e9), 0, payload
-        )  # TODO use hash as message id instead of random integer
-        for peer in self.validators.values():
-            self.ez_send(peer, gossip_message)
+        if payload not in self.buffered_transactions:
+            self.buffered_transactions.append(payload)

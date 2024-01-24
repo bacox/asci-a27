@@ -1,50 +1,17 @@
-import json
-from ipv8.community import CommunitySettings
-from ipv8.messaging.payload_dataclass import overwrite_dataclass
-from dataclasses import dataclass
 from random import randint
 from time import time
+from ipv8.community import CommunitySettings
 from ipv8.types import Peer
 
 from da_types import Blockchain, message_wrapper
+
+from .messages import Announcement, TransactionBody
 
 from binascii import hexlify, unhexlify
 
 
 def to_hex(bstr: bytes) -> str:
     return hexlify(bstr).decode()
-
-
-# We are using a custom dataclass implementation.
-dataclass = overwrite_dataclass(dataclass)
-
-
-@dataclass(
-    msg_id=2, unsafe_hash=True
-)  # frozen makes the class immutable, allowing it to be hashable
-class Transaction:
-    """Transaction message type."""
-
-    sender_id: int
-    target_id: int
-    amount: int
-    timestamp: int
-    nonce: int = 1
-    hash: str = "None"
-
-    def create_hash(self) -> None:
-        """Creates a hash out of the contents of the transaction."""
-        self.hash = "hello world"
-
-    #     self.hash = # TODO
-
-
-@dataclass(msg_id=3)
-class Announcement:
-    """Announcement message type."""
-
-    sender_id: int
-    is_client: bool
 
 
 class Client(Blockchain):
@@ -60,7 +27,7 @@ class Client(Blockchain):
         self.validators = []
         self.echo_counter = 0
         self.local_balance = 0
-        self.add_message_handler(Transaction, self.on_transaction)
+        self.add_message_handler(TransactionBody, self.on_transaction)
 
     def on_start(self):
         # start by announcing ourselves to our only known validator
@@ -87,17 +54,15 @@ class Client(Blockchain):
         if amount is None:
             amount = max(self.local_balance, randint(1, 100))
         if amount <= self.local_balance and self.node_id != target_id:
-            timestamp = int(time())
-            transaction = Transaction(self.node_id, target_id, amount, timestamp)
-            transaction.create_hash()
+            transaction = TransactionBody(self.node_id, target_id, amount)
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
                 print(
                     f"[Client {self.node_id}] send TX to node {self.node_id_from_peer(target_id)}"
                 )
 
-    @message_wrapper(Transaction)
-    async def on_transaction(self, peer: Peer, transaction: Transaction) -> None:
+    @message_wrapper(TransactionBody)
+    async def on_transaction(self, peer: Peer, transaction: TransactionBody) -> None:
         """Upon reception of a transaction."""
 
         # To has messages not used right now
@@ -112,8 +77,10 @@ class Client(Blockchain):
         print(f"[C{self.node_id}] Got a TX {transaction=}")
         if (
             transaction.target_id == self.node_id
-            and transaction.hash not in self.history.keys()
+            and transaction.hash not in self.history
         ):
+            # TODO make alternative for checking non-existing transactionbody.hash
+
             # add transaction to history
             self.history[transaction.hash] = transaction
 
