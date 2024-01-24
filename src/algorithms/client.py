@@ -23,10 +23,11 @@ class Client(Blockchain):
 
     def __init__(self, settings: CommunitySettings) -> None:
         super().__init__(settings)
-        self.history = {}  # dict of transaction hash : transaction
+        self.history: list[TransactionBody] = []
         self.validators = []
         self.echo_counter = 0
         self.local_balance = 0
+        self.send_counter = 0
         self.add_message_handler(TransactionBody, self.on_transaction)
 
     def on_start(self):
@@ -54,7 +55,10 @@ class Client(Blockchain):
         if amount is None:
             amount = max(self.local_balance, randint(1, 100))
         if amount <= self.local_balance and self.node_id != target_id:
-            transaction = TransactionBody(self.node_id, target_id, amount)
+            transaction = TransactionBody(
+                self.node_id, target_id, amount, self.send_counter
+            )
+            self.send_counter += 1
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
                 print(
@@ -75,14 +79,9 @@ class Client(Blockchain):
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
         print(f"[C{self.node_id}] Got a TX {transaction=}")
-        if (
-            transaction.target_id == self.node_id
-            and transaction.hash not in self.history
-        ):
-            # TODO make alternative for checking non-existing transactionbody.hash
-
+        if transaction.target_id == self.node_id and transaction not in self.history:
             # add transaction to history
-            self.history[transaction.hash] = transaction
+            self.history.append(transaction)
 
             if transaction.target_id == self.node_id:
                 # add amount to balance
@@ -90,11 +89,3 @@ class Client(Blockchain):
             elif transaction.sender_id == self.node_id:
                 # deduct from balance
                 self.local_balance -= transaction.amount
-
-            # # broadcast
-            # transaction.hop_counter += 1
-            # self.history[transaction.hash] = transaction
-            # for val in self.validators:
-            #     if val == peer:
-            #         continue
-            #     self.ez_send(val, transaction)
