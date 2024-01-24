@@ -46,7 +46,8 @@ class Validator(Blockchain):
         self.register_task(
             "check_tx",
             self.check_tx,
-            delay=
+            delay=4,
+            interval=3
         )
         self.register_task(
             "send_buffered_transactions",
