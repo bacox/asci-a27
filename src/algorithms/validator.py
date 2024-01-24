@@ -2,6 +2,7 @@ from typing import List
 
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
+from collections import defaultdict
 
 from da_types import Blockchain, message_wrapper
 from .messages import Announcement, TransactionBody, Gossip, BlockHeader
@@ -21,7 +22,7 @@ class Validator(Blockchain):
         super().__init__(settings)
         self.validators = {}  # dict of nodeID : peer
         self.clients = {}  # dict of nodeID : peer
-        self.balances = {}  # dict of nodeID: balance
+        self.balances = defaultdict(lambda: 0)  # dict of nodeID: balance
         self.echo_counter = 0
 
         self.buffered_transactions: list[TransactionBody] = []
@@ -44,8 +45,8 @@ class Validator(Blockchain):
 
         # register tasks
         self.register_task(
-            "check_tx",
-            self.check_tx,
+            "execute_transactions",
+            self.execute_transactions,
             delay=4,
             interval=3
         )
@@ -64,34 +65,40 @@ class Validator(Blockchain):
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
             transaction = TransactionBody(
-                -1, node_id, self.balances[node_id], 0
+                -1, node_id, self.balances[node_id], starting_balance
             )
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
-            self.ez_send(peer, transaction)
+            self.buffered_transactions.append(transaction)
+            # self.ez_send(peer, transaction)
 
     # TODO implement concensus system
 
-    def check_tx(self):
-        """Temporary function to execute"""
-        for tx in self.pending_transactions:
-            self.execute_transaction(tx)
+    # def check_tx(self):
+    #     """Temporary function to execute"""
+    #     for tx in self.pending_transactions:
+    #         self.execute_transaction(tx)
 
     # TODO only execute if we're leader, produces blockheader
     # or only execute if we have block finality?
     def execute_transactions(self):
         """Executes a set of transactions if approved"""
         # transactions = self.pending_transactions:
-        for transaction in self.pending_transactions:
-            if self.balances[transaction.sender_id] >= transaction.amount:
-                self.balances[transaction.sender_id] -= transaction.amount
+        transactions = self.pending_transactions.copy()
+        self.pending_transactions = []
+        for transaction in transactions:         
+            if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
-            elif transaction.sender_id == -1:
+                print(f'Executing special {transaction=}')
+            elif self.balances[transaction.sender_id] >= transaction.amount:
+                print(f'Executing {transaction=}')
+                self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
             else:
                 print(
                     f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
                 )
+                self.pending_transactions.append(transaction)
 
             # send transaction to target client
             # TODO check if we still want to do it like that, or clients just request their balance
@@ -110,7 +117,6 @@ class Validator(Blockchain):
 
             # bundle the valid transactions in a gossip and send it on the network
             gossip_message = Gossip(self.buffered_transactions)
-            gossip_message.create_message_id()
             for peer in self.validators.values():
                 self.ez_send(peer, gossip_message)
 
@@ -124,17 +130,29 @@ class Validator(Blockchain):
         # print(
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
-
-        if payload.message_id is None:
-            print(f"Received Gossip without message ID from {peer}")
-        if payload.message_id not in self.pending_transactions:
-            self.pending_transactions[payload.message_id] = payload.transactions
-            # broadcast to other validators
-            payload.hop_counter += 1
+        to_gossip = []
+        for tx in payload.transactions:
+            if tx not in self.pending_transactions:
+                self.pending_transactions.append(tx)
+                to_gossip.append(tx)
+        
+        if len(to_gossip):
+            gossip_obj = Gossip(to_gossip)
             for val in self.validators.values():
                 if val == peer:
                     continue
-                self.ez_send(val, payload)
+                self.ez_send(val, gossip_obj)
+
+        # if payload.message_id is None:
+        #     print(f"Received Gossip without message ID from {peer}")
+        # if payload.message_id not in self.pending_transactions:
+        #     self.pending_transactions[] = payload.transactions
+        #     # broadcast to other validators
+        #     payload.hop_counter += 1
+        #     for val in self.validators.values():
+        #         if val == peer:
+        #             continue
+        #         self.ez_send(val, payload)
 
     @message_wrapper(Announcement)
     async def on_announcement(self, peer: Peer, payload: Announcement) -> None:

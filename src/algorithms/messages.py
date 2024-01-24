@@ -8,8 +8,8 @@ from ipv8.messaging.payload_dataclass import overwrite_dataclass
 
 def create_hash(item, fmt="payload") -> bytes:
     """Creates a hash out of the contents of the item."""
-    transaction_package = default_serializer.pack(fmt=fmt, item=item)
-    return sha256(transaction_package).digest()
+    bstr = b''.join(default_serializer.pack_serializable(x) for x in item)
+    return sha256(bstr).digest()
 
 
 # We are using a custom dataclass implementation.
@@ -39,11 +39,6 @@ class Gossip:
     """A Gossip message, passed along to communicate pending transactions."""
 
     transactions: [TransactionBody]
-    hop_counter: int = 0
-    message_id: bytes = None
-
-    def create_message_id(self):
-        self.message_id = create_hash(self.transactions)
 
 
 @dataclass(msg_id=3, unsafe_hash=True)
