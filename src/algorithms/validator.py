@@ -53,7 +53,7 @@ class Validator(Blockchain):
         self.register_task(
             "send_buffered_transactions",
             self.send_buffered_transactions,
-            delay=5,
+            delay=4,
             interval=3,
         )
 
@@ -86,25 +86,29 @@ class Validator(Blockchain):
         # transactions = self.pending_transactions:
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
+        # print(f'Executing {len(transactions)} -> {transactions}')
         for transaction in transactions:         
             if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
                 print(f'Executing special {transaction=}')
             elif self.balances[transaction.sender_id] >= transaction.amount:
-                print(f'Executing {transaction=}')
+                # print(f'Executing {transaction=}')
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
             else:
-                print(
-                    f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
-                )
+                # print(
+                #     f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
+                # )
+                print(f'Reinsert tx {transaction=} into pending ({len(self.pending_transactions)})')
                 self.pending_transactions.append(transaction)
 
             # send transaction to target client
             # TODO check if we still want to do it like that, or clients just request their balance
             target_id = transaction.target_id
+            sender_id = transaction.sender_id
+
             for node_id, peer in self.clients.items():
-                if node_id == target_id:
+                if node_id == target_id or node_id == sender_id:
                     self.ez_send(peer, transaction)
 
     def send_buffered_transactions(self):
@@ -120,7 +124,7 @@ class Validator(Blockchain):
             for peer in self.validators.values():
                 self.ez_send(peer, gossip_message)
 
-            print(f"Sending {len(self.buffered_transactions)=}")
+            # print(f"Sending {len(self.buffered_transactions)} buffered transactions")
             self.buffered_transactions = []
 
     @message_wrapper(Gossip)
@@ -171,13 +175,15 @@ class Validator(Blockchain):
         else:
             self.validators[sender_id] = peer
 
-        if (
+        if (self.node_id == 0 and
             len(self.validators) + len(self.clients) >= len(self.nodes)
             and len(self.clients) > 0
             and not self.can_start
         ):
+            
             self.can_start = True
-            self.init_transaction()
+            self.register_anonymous_task('init transaction', self.init_transaction, delay=2)
+            # self.init_transaction()
 
         # print(f'{len(self.validators) + len(self.clients) >= len(self.nodes)}')
         print(
@@ -205,7 +211,7 @@ class Validator(Blockchain):
     async def on_transaction(self, peer: Peer, payload: TransactionBody) -> None:
         """When a transaction message is received from a client, add it to the buffer to be gossiped it to the rest of the network."""
         with self.receive_lock:
-            print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
+            # print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
 
             if self.is_new_transaction(payload):
                 self.buffered_transactions.append(payload)
