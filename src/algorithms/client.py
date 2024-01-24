@@ -44,6 +44,13 @@ class Client(Blockchain):
             interval=randint(2, 4),
         )
 
+        # self.register_task(
+        #     'request_balance',
+        #     self.request_balance,
+        #     delay=1,
+        #     interval=1
+        # )
+
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
         print(f"[C{self.node_id}] Triggering client send {self.local_balance=}")
@@ -52,7 +59,7 @@ class Client(Blockchain):
                 self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
             )
         if amount is None:
-            amount = max(self.local_balance, randint(1, 100))
+            amount = randint(1, 100)
         if amount <= self.local_balance and self.node_id != target_id:
             transaction = TransactionBody(
                 self.node_id, target_id, amount, self.send_counter
@@ -61,8 +68,10 @@ class Client(Blockchain):
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
                 print(
-                    f"[Client {self.node_id}] sent TX to node {self.node_id_from_peer(target_id)}"
+                    f"[Client {self.node_id}] sent TX to node {target_id}"
                 )
+
+    # def request_balance(self):
 
     @message_wrapper(TransactionBody)
     async def on_transaction(self, peer: Peer, transaction: TransactionBody) -> None:
