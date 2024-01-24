@@ -42,7 +42,7 @@ class Blockchain(Community):
         self.event = event
         self.node_id = node_id
         self.connections = connections
-        self.on_start_delay = random.uniform(1.0, 3.0)  # Seconds
+        self.on_start_delay = random.uniform(1.0, 2.0)  # Seconds
         host_network = self._get_lan_address()[0]
         host_network_base = ".".join(host_network.split(".")[:3])
 
