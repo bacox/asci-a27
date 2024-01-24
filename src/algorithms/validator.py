@@ -23,7 +23,7 @@ class Validator(Blockchain):
         self.validators = {}  # dict of nodeID : peer
         self.clients = {}  # dict of nodeID : peer
         self.balances = defaultdict(lambda: 0)  # dict of nodeID: balance
-        self.echo_counter = 0
+        self.stake = 100
 
         self.buffered_transactions: list[TransactionBody] = []
         self.pending_transactions: list[TransactionBody] = []
@@ -45,10 +45,7 @@ class Validator(Blockchain):
 
         # register tasks
         self.register_task(
-            "execute_transactions",
-            self.execute_transactions,
-            delay=4,
-            interval=3
+            "execute_transactions", self.execute_transactions, delay=4, interval=3
         )
         self.register_task(
             "send_buffered_transactions",
@@ -64,9 +61,7 @@ class Validator(Blockchain):
             # if the node_id was not in the validator database, add it
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
-            transaction = TransactionBody(
-                -1, node_id, starting_balance, 0
-            )
+            transaction = TransactionBody(-1, node_id, starting_balance, 0)
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
             self.buffered_transactions.append(transaction)
@@ -79,19 +74,18 @@ class Validator(Blockchain):
     #     for tx in self.pending_transactions:
     #         self.execute_transaction(tx)
 
-    # TODO only execute if we're leader, produces blockheader
-    # or only execute if we have block finality?
+    # TODO only execute if we have block finality
     def execute_transactions(self):
         """Executes a set of transactions if approved"""
         # transactions = self.pending_transactions:
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
-        for transaction in transactions:         
+        for transaction in transactions:
             if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
-                print(f'Executing special {transaction=}')
+                print(f"Executing special {transaction=}")
             elif self.balances[transaction.sender_id] >= transaction.amount:
-                print(f'Executing {transaction=}')
+                print(f"Executing {transaction=}")
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
             else:
@@ -101,7 +95,6 @@ class Validator(Blockchain):
                 self.pending_transactions.append(transaction)
 
             # send transaction to target client
-            # TODO check if we still want to do it like that, or clients just request their balance
             target_id = transaction.target_id
             for node_id, peer in self.clients.items():
                 if node_id == target_id:
@@ -135,8 +128,8 @@ class Validator(Blockchain):
             if tx not in self.pending_transactions:
                 self.pending_transactions.append(tx)
                 to_gossip.append(tx)
-        
-        if len(to_gossip):
+
+        if len(to_gossip) > 0:
             gossip_obj = Gossip(to_gossip)
             for val in self.validators.values():
                 if val == peer:
@@ -205,7 +198,9 @@ class Validator(Blockchain):
     async def on_transaction(self, peer: Peer, payload: TransactionBody) -> None:
         """When a transaction message is received from a client, add it to the buffer to be gossiped it to the rest of the network."""
         with self.receive_lock:
-            print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
+            print(
+                f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}"
+            )
 
             if self.is_new_transaction(payload):
                 self.buffered_transactions.append(payload)

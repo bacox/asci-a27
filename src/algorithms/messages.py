@@ -8,7 +8,7 @@ from ipv8.messaging.payload_dataclass import overwrite_dataclass
 
 def create_hash(item, fmt="payload") -> bytes:
     """Creates a hash out of the contents of the item."""
-    bstr = b''.join(default_serializer.pack_serializable(x) for x in item)
+    bstr = b"".join(default_serializer.pack_serializable(x) for x in item)
     return sha256(bstr).digest()
 
 
@@ -34,14 +34,22 @@ class TransactionBody:
     message_id: int  # every node can keep their own counter for this
 
 
-@dataclass(msg_id=4, unsafe_hash=True)
+@dataclass(msg_id=3)
 class Gossip:
     """A Gossip message, passed along to communicate pending transactions."""
 
     transactions: [TransactionBody]
 
 
-@dataclass(msg_id=3, unsafe_hash=True)
+@dataclass(msg_id=4)
+class AnnounceConcensusParticipation:
+    """A message to announce the participation of a validator."""
+
+    sender_id: int
+    stake: int
+
+
+@dataclass(msg_id=5, unsafe_hash=True)
 class BlockHeader:
     """A Block header, containing an array of transactions."""
 

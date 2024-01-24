@@ -24,7 +24,6 @@ class Client(Blockchain):
         super().__init__(settings)
         self.history: list[TransactionBody] = []
         self.validators = []
-        self.echo_counter = 0
         self.local_balance = 0
         self.send_counter = 0
         self.add_message_handler(TransactionBody, self.on_transaction)
@@ -67,9 +66,7 @@ class Client(Blockchain):
             self.send_counter += 1
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
-                print(
-                    f"[Client {self.node_id}] sent TX to node {target_id}"
-                )
+                print(f"[Client {self.node_id}] sent TX to node {target_id}")
 
     # def request_balance(self):
 
