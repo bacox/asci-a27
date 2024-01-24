@@ -24,8 +24,8 @@ class Validator(Blockchain):
         self.balances = {}  # dict of nodeID: balance
         self.echo_counter = 0
 
-        self.buffered_transactions: List[TransactionBody] = []
-        self.pending_transactions: dict[bytes, list[TransactionBody]] = {}
+        self.buffered_transactions: list[TransactionBody] = []
+        self.pending_transactions: list[TransactionBody] = []
         self.finalized_transactions: dict[bytes, list[TransactionBody]] = {}
         self.can_start = False
 
@@ -42,6 +42,11 @@ class Validator(Blockchain):
         print(f"{self.nodes}")
 
         # register tasks
+        self.register_task(
+            "check_tx",
+            self.check_tx,
+            delay=
+        )
         self.register_task(
             "send_buffered_transactions",
             self.send_buffered_transactions,
@@ -65,9 +70,14 @@ class Validator(Blockchain):
 
     # TODO implement concensus system
 
+    def check_tx(self):
+        """Temporary function to execute"""
+        for tx in self.pending_transactions.values():
+            self.execute_transaction(tx)
+
     # TODO only execute if we're leader, produces blockheader
     # or only execute if we have block finality?
-    def execute_transaction(self, message_id: bytes):
+    def execute_transactions(self):
         """Executes a set of transactions if approved"""
         transactions = self.pending_transactions[message_id]
         for transaction in transactions:
@@ -90,16 +100,19 @@ class Validator(Blockchain):
 
     def send_buffered_transactions(self):
         """Function to broadcast the buffered transactions on the network."""
+        # get all buffered transactions
+        for transaction in self.buffered_transactions:
+            if transaction not in self.pending_transactions:
+                self.pending_transactions.append(transaction)
 
-        transactions_to_send = self.buffered_transactions
-        if len(transactions_to_send) > 0:
-            print(f"Sending {len(transactions_to_send)=}")
-            gossip_message = Gossip(transactions_to_send)
-            gossip_message.create_message_id()
-            for peer in self.validators.values():
-                self.ez_send(peer, gossip_message)
-            self.pending_transactions[gossip_message.message_id] = transactions_to_send
-            self.buffered_transactions = []
+        # bundle the valid transactions in a gossip and send it on the network
+        gossip_message = Gossip(self.buffered_transactions)
+        gossip_message.create_message_id()
+        for peer in self.validators.values():
+            self.ez_send(peer, gossip_message)
+
+        print(f"Sending {len(self.buffered_transactions)=}")
+        self.buffered_transactions = []
 
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:

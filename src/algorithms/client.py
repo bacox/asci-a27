@@ -61,7 +61,7 @@ class Client(Blockchain):
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
                 print(
-                    f"[Client {self.node_id}] send TX to node {self.node_id_from_peer(target_id)}"
+                    f"[Client {self.node_id}] sent TX to node {self.node_id_from_peer(target_id)}"
                 )
 
     @message_wrapper(TransactionBody)
