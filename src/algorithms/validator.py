@@ -57,7 +57,7 @@ class Validator(Blockchain):
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
             transaction = TransactionBody(
-                self.node_id, node_id, self.balances[node_id], 0
+                -1, node_id, self.balances[node_id], 0
             )
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
