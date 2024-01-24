@@ -84,21 +84,13 @@ class Validator(Blockchain):
         # transactions = self.pending_transactions:
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
-<<<<<<< HEAD
         # print(f'Executing {len(transactions)} -> {transactions}')
         for transaction in transactions:         
-=======
-        for transaction in transactions:
->>>>>>> ac6247a65ef450863538b5595f00ddd3583a3a86
             if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
                 print(f"Executing special {transaction=}")
             elif self.balances[transaction.sender_id] >= transaction.amount:
-<<<<<<< HEAD
                 # print(f'Executing {transaction=}')
-=======
-                print(f"Executing {transaction=}")
->>>>>>> ac6247a65ef450863538b5595f00ddd3583a3a86
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
             else:
