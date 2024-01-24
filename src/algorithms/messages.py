@@ -43,13 +43,24 @@ class Gossip:
 
 @dataclass(msg_id=4)
 class AnnounceConcensusParticipation:
-    """A message to announce the participation of a validator."""
+    """A message to announce the election participation of a validator."""
 
+    election_number: int
     sender_id: int
     stake: int
 
 
-@dataclass(msg_id=5, unsafe_hash=True)
+@dataclass(msg_id=5)
+class AnnounceConcensusWinner:
+    """A message to announce a validator as the election winner, with validation."""
+
+    election_number: int
+    winner_id: int
+    random_seed: int  # TODO check if this is even necessary
+    number_of_validators: int
+
+
+@dataclass(msg_id=6, unsafe_hash=True)
 class BlockHeader:
     """A Block header, containing an array of transactions."""
 

@@ -1,4 +1,5 @@
 from typing import List
+from time import time
 
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
@@ -23,13 +24,16 @@ class Validator(Blockchain):
         self.validators = {}  # dict of nodeID : peer
         self.clients = {}  # dict of nodeID : peer
         self.balances = defaultdict(lambda: 0)  # dict of nodeID: balance
-        self.stake = 100
-
         self.buffered_transactions: list[TransactionBody] = []
         self.pending_transactions: list[TransactionBody] = []
         self.finalized_transactions: dict[bytes, list[TransactionBody]] = {}
         self.can_start = False
         self.receive_lock = RLock()
+
+        # elections
+        self.time_since_election = int(time())
+        self.in_elections = False
+        self.available_stake = 100
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
