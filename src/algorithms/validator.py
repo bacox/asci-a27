@@ -74,15 +74,15 @@ class Validator(Blockchain):
 
     def check_tx(self):
         """Temporary function to execute"""
-        for tx in self.pending_transactions.values():
+        for tx in self.pending_transactions:
             self.execute_transaction(tx)
 
     # TODO only execute if we're leader, produces blockheader
     # or only execute if we have block finality?
     def execute_transactions(self):
         """Executes a set of transactions if approved"""
-        transactions = self.pending_transactions[message_id]
-        for transaction in transactions:
+        # transactions = self.pending_transactions:
+        for transaction in self.pending_transactions:
             if self.balances[transaction.sender_id] >= transaction.amount:
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
@@ -174,7 +174,7 @@ class Validator(Blockchain):
             return False
 
         # then check if a transaction is in the pending
-        if transaction in list(self.pending_transactions.values()):
+        if transaction in self.pending_transactions:
             return False
 
         # least likely: a transaction has already been finalized
