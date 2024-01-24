@@ -5,7 +5,7 @@ from ipv8.types import Peer
 
 from da_types import Blockchain, message_wrapper
 from .messages import Announcement, TransactionBody, Gossip, BlockHeader
-
+from threading import RLock
 
 starting_balance = 1000
 
@@ -28,6 +28,7 @@ class Validator(Blockchain):
         self.pending_transactions: list[TransactionBody] = []
         self.finalized_transactions: dict[bytes, list[TransactionBody]] = {}
         self.can_start = False
+        self.receive_lock = RLock()
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
@@ -183,7 +184,8 @@ class Validator(Blockchain):
     @message_wrapper(TransactionBody)
     async def on_transaction(self, peer: Peer, payload: TransactionBody) -> None:
         """When a transaction message is received from a client, add it to the buffer to be gossiped it to the rest of the network."""
-        print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
+        with self.receive_lock:
+            print(f"[Validator {self.node_id}] got TX from {self.node_id_from_peer(peer)}")
 
-        if self.is_new_transaction(payload):
-            self.buffered_transactions.append(payload)
+            if self.is_new_transaction(payload):
+                self.buffered_transactions.append(payload)
