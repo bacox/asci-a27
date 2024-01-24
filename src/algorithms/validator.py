@@ -74,6 +74,8 @@ class Validator(Blockchain):
             if self.balances[transaction.sender_id] >= transaction.amount:
                 self.balances[transaction.sender_id] -= transaction.amount
                 self.balances[transaction.target_id] += transaction.amount
+            elif transaction.sender_id == -1:
+                self.balances[transaction.target_id] += transaction.amount
             else:
                 print(
                     f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
