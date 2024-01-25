@@ -1,5 +1,6 @@
 from time import time
 from math import ceil
+import random
 
 from threading import RLock
 from collections import defaultdict
@@ -56,7 +57,8 @@ class Validator(Blockchain):
         self.time_since_election = int(time())  # time since last succesful election
         self.available_stake = 100
         self.stake_registration = {}  # dict of validatorID : stake
-        self.election_last_winner = -1
+        self.election_random_seed = None
+        self.election_winner_id = None
         self.election_announcement_grace_period = (
             5  # the grace period duration in seconds
         )
@@ -230,12 +232,25 @@ class Validator(Blockchain):
         """Calculates and broadcasts the election winner."""
         assert self.election_phase == "announce_grace"
         self.election_phase = "elect"
+        # print(
+        #     f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase}"
+        # )
+
+        # sum the stake values, and use the outcome as a random seed
+        self.election_random_seed = sum(self.stake_registration.values())
+        random.seed(self.election_random_seed)
+
+        # the random seed is used to choose the validator proportional to the stakes, ordered by node ID
+        self.stake_registration = dict(sorted(self.stake_registration.items()))
+        self.election_winner_id = random.choices(
+            list(self.stake_registration.keys()), list(self.stake_registration.values())
+        )[0]
         print(
-            f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase}"
+            f" [V{self.node_id}] elected {self.election_winner_id} with seed {self.election_random_seed}"
         )
+
+        # broadcast the election result and number of validators
         # TODO
-        winner_id = -1
-        random_seed = -1
 
         # TODO enable to continue after announcement phase
         # # broadcast the winner
@@ -277,6 +292,7 @@ class Validator(Blockchain):
         # TODO
         # self.election_last_winner =
         self.election_phase = "none"
+        self.election_random_seed = None
         self.election_round += 1
 
     @message_wrapper(Gossip)
