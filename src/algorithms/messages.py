@@ -70,3 +70,11 @@ class BlockHeader:
 
     def create_hash(self) -> None:
         self.hash = create_hash(self)
+
+@dataclass(msg_id=6)
+class Block:
+    block_height: int
+    prev_block_hash: bytes
+    timestamp: int
+    transactions: [TransactionBody]
+

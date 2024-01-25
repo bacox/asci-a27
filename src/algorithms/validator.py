@@ -4,13 +4,14 @@ from time import time
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
 from collections import defaultdict
-
+from ipv8.messaging.serialization import default_serializer
+from hashlib import sha256
 from da_types import Blockchain, message_wrapper
-from .messages import Announcement, TransactionBody, Gossip, BlockHeader
+from .messages import Announcement, Block, TransactionBody, Gossip, BlockHeader
 from threading import RLock
 
 starting_balance = 1000
-
+block_width = 5
 
 class Validator(Blockchain):
     """_summary_
@@ -29,6 +30,7 @@ class Validator(Blockchain):
         self.finalized_transactions: dict[bytes, list[TransactionBody]] = {}
         self.can_start = False
         self.receive_lock = RLock()
+        self.blocks = []
 
         # elections
         self.time_since_election = int(time())
@@ -107,6 +109,33 @@ class Validator(Blockchain):
             for node_id, peer in self.clients.items():
                 if node_id == target_id or node_id == sender_id:
                     self.ez_send(peer, transaction)
+
+    def validate_block(self, block: Block):
+        pass
+
+    def form_block(self):
+        # We assume that blocks are ordered.
+        prev_block_hash = b'0'
+        if len(self.blocks) > 0:
+            prev_block_hash = sha256(default_serializer.pack('payload', self.blocks[-1])).digest()
+
+        block = Block(self.get_block_height() + 1, prev_block_hash, int(time.time()),
+                      [tx for tx in self.pending_txs[:block_width]])
+
+        self.blocks.append(block)
+
+        # Gossip to other nodes
+        for peer in self.validators.values():
+            self.ez_send(peer, block)
+
+        # We confirm our own block
+        #@TODO: DO conformation
+
+    def get_block_height(self):
+        if len(self.blocks) > 0:
+            return self.blocks[-1].block_height
+        return 0
+
 
     def send_buffered_transactions(self):
         """Function to broadcast the buffered transactions on the network."""
