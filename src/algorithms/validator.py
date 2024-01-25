@@ -19,6 +19,9 @@ from .messages import (
 # parameters
 starting_balance = 1000
 factor_non_byzantine = 0.66
+early_election_minimum_transactions = (
+    4  # number of pending transactions before an early election is called
+)
 election_phases = (
     "none",
     "announce",
@@ -38,8 +41,8 @@ class Validator(Blockchain):
 
     def __init__(self, settings: CommunitySettings) -> None:
         super().__init__(settings)
-        self.validators = {}  # dict of nodeID : peer
-        self.clients = {}  # dict of nodeID : peer
+        self.validators: dict[int, Peer] = {}  # dict of nodeID : peer
+        self.clients: dict[int, Peer] = {}  # dict of nodeID : peer
         self.balances = defaultdict(lambda: 0)  # dict of nodeID: balance
         self.buffered_transactions: list[TransactionBody] = []
         self.pending_transactions: list[TransactionBody] = []
@@ -81,11 +84,12 @@ class Validator(Blockchain):
             delay=4,
             interval=3,
         )
+        self.register_task("election_timer", self.start_election, delay=30, interval=30)
 
     def init_transaction(self):
         """The init transactions are executed after the announcements have been completed."""
         print("Init TX")
-        for node_id, peer in self.clients.items():
+        for node_id in self.clients:
             # if the node_id was not in the validator database, add it
             if node_id not in self.balances:
                 self.balances[node_id] = starting_balance
@@ -93,12 +97,10 @@ class Validator(Blockchain):
             print(f"Creating transaction: {transaction=}")
             print(f"{self.clients=}")
             self.buffered_transactions.append(transaction)
-            # self.ez_send(peer, transaction)
 
     # TODO only execute if we have block finality
     def execute_transactions(self):
         """Executes a set of transactions if approved"""
-        # transactions = self.pending_transactions:
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
         # print(f'Executing {len(transactions)} -> {transactions}')
@@ -141,19 +143,24 @@ class Validator(Blockchain):
 
             # print(f"Sending {len(self.buffered_transactions)} buffered transactions")
             self.buffered_transactions = []
+            if len(self.pending_transactions) >= early_election_minimum_transactions:
+                self.start_election()
 
     def start_election(self):
         """Starts an election."""
         if self.election_phase != "none":
             return
-        self.election_announce()
+        self.election_announce(self.node_id)
 
-    def election_announce(self):
+    def election_announce(self, origin_id: int):
         """Broadcasts election participation."""
         self.election_phase = "announce"
+        print(
+            f"Node {self.node_id} Election {self.election_round} phase: {self.election_phase} started by {origin_id}"
+        )
         stake = self.available_stake * 0.5
         message = AnnounceConcensusParticipation(
-            self.election_round, self.node_id, stake
+            self.election_round, self.node_id, stake, origin_id
         )
         self.broadcast(message, self.my_peer, validators=True, clients=False)
 
@@ -178,7 +185,7 @@ class Validator(Blockchain):
 
         # send our own participation if not done yet
         if self.election_phase == "none":
-            self.election_announce()
+            self.election_announce(payload.origin_id)
 
         # save the results
         self.stake_registration[payload.sender_id] = payload.stake
@@ -201,20 +208,25 @@ class Validator(Blockchain):
                 self.election_announce_winner,
                 delay=self.election_announcement_grace_period,
             )
+            print(f"Node {self.node_id} Election phase: {self.election_phase}")
 
     def election_announce_winner(self):
         """Calculates and broadcasts the election winner."""
         assert self.election_phase == "announce_grace"
         self.election_phase = "elect"
+        print(
+            f"Node {self.node_id} Election {self.election_round} phase: {self.election_phase}"
+        )
         # TODO
         winner_id = -1
         random_seed = -1
 
-        # broadcast the winner
-        message = AnnounceConcensusWinner(
-            self.election_round, winner_id, random_seed, len(self.validators)
-        )
-        self.broadcast(message, self.my_peer, validators=True, clients=False)
+        # TODO enable to continue after announcement phase
+        # # broadcast the winner
+        # message = AnnounceConcensusWinner(
+        #     self.election_round, winner_id, random_seed, len(self.validators)
+        # )
+        # self.broadcast(message, self.my_peer, validators=True, clients=False)
 
     @message_wrapper(AnnounceConcensusWinner)
     async def on_election_result(self, peer: Peer, payload: AnnounceConcensusWinner):
@@ -295,6 +307,7 @@ class Validator(Blockchain):
         elif sender_id != self.node_id:
             self.validators[sender_id] = peer
 
+        # create the initial transaction
         if (
             self.node_id == 0
             and len(self.validators) + len(self.clients) >= len(self.nodes)

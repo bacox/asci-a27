@@ -48,6 +48,7 @@ class AnnounceConcensusParticipation:
     election_round: int
     sender_id: int
     stake: int
+    origin_id: int  # the node that started the election
 
 
 @dataclass(msg_id=5)
