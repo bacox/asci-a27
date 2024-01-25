@@ -31,7 +31,7 @@ from .messages import (
 )
 
 # parameters
-starting_balance = 10000
+starting_balance = 5000
 block_width = 5
 factor_non_byzantine = 0.66
 early_election_minimum_transactions = (
@@ -248,7 +248,7 @@ class Validator(Blockchain):
             f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase} started by {origin_id}"
         )
         self.election_winner_id = None
-        stake = round(self.available_stake * 0.5)
+        stake = round(self.available_stake * (0.3 + random.random() * 0.4))
         self.stake_registration[self.node_id] = stake
         message = AnnounceConcensusParticipation(
             self.election_round, self.node_id, stake, origin_id
@@ -440,6 +440,7 @@ class Validator(Blockchain):
         self.stake_registration = {}
         self.result_registration = {}
         self.election_round += 1
+        random.seed(int(time()))  # reset the random seed
 
         # if less than N-f contradictory results are received, a new election must be started
         if valid < ceil(len(self.validators) * factor_non_byzantine):
