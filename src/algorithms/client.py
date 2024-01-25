@@ -9,8 +9,8 @@ from .messages import Announcement, TransactionBody
 from binascii import hexlify, unhexlify
 
 
-client_start_id = 2
-num_clients = 2
+client_start_id = 3
+num_clients = 3
 all_clients = [x + client_start_id for x in range(num_clients)]
 
 def to_hex(bstr: bytes) -> str:
