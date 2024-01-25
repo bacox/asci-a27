@@ -78,3 +78,7 @@ class Block:
     timestamp: int
     transactions: [TransactionBody]
 
+@dataclass(msg_id=7)
+class BlockVote:
+    block_height: int
+    block_hash: bytes
