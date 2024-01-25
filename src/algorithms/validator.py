@@ -58,14 +58,18 @@ class Validator(Blockchain):
         self.stake_registration = {}  # dict of validatorID : stake
         self.election_last_winner = -1
         self.election_announcement_grace_period = (
-            1  # the grace period duration in seconds
+            5  # the grace period duration in seconds
         )
-        self.election_winner_grace_period = 1
+        self.election_winner_grace_period = 5
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
         self.add_message_handler(Announcement, self.on_announcement)
         self.add_message_handler(TransactionBody, self.on_transaction)
+        self.add_message_handler(
+            AnnounceConcensusParticipation, self.on_election_announcement
+        )
+        self.add_message_handler(AnnounceConcensusWinner, self.on_election_result)
 
     def on_start(self):
         # announce ourselves to the other nodes as a validator
@@ -154,14 +158,17 @@ class Validator(Blockchain):
 
     def election_announce(self, origin_id: int):
         """Broadcasts election participation."""
-        self.election_phase = "announce"
+        if self.election_phase != "announce_grace":
+            self.election_phase = "announce"
         print(
-            f"Node {self.node_id} Election {self.election_round} phase: {self.election_phase} started by {origin_id}"
+            f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase} started by {origin_id}"
         )
-        stake = self.available_stake * 0.5
+        stake = round(self.available_stake * 0.5)
+        self.stake_registration[self.node_id] = stake
         message = AnnounceConcensusParticipation(
             self.election_round, self.node_id, stake, origin_id
         )
+        print(message)
         self.broadcast(message, self.my_peer, validators=True, clients=False)
 
     @message_wrapper(AnnounceConcensusParticipation)
@@ -169,9 +176,15 @@ class Validator(Blockchain):
         self, peer: Peer, payload: AnnounceConcensusParticipation
     ):
         """When an election participation is received, save the result."""
+        print(
+            f" [V{self.node_id}] received election participation from {payload.sender_id}:"
+        )
 
-        # check whether we're not already in an election
-        if self.election_phase not in ("none", "elect", "elect_grace"):
+        # check whether we're able to receive participations
+        if self.election_phase not in ("none", "announce", "announce_grace"):
+            print(
+                f"[V{self.node_id}] received election participation from {payload.sender_id}, but is already in phase {self.election_phase}, ignoring"
+            )
             return
 
         # check whether this is a valid election round
@@ -187,8 +200,11 @@ class Validator(Blockchain):
         if self.election_phase == "none":
             self.election_announce(payload.origin_id)
 
-        # save the results
-        self.stake_registration[payload.sender_id] = payload.stake
+        # save the received stakes
+        if payload.sender_id not in self.stake_registration:
+            self.stake_registration[payload.sender_id] = payload.stake
+
+        # if the message came from an unseen validator, add it to the known validators
         if (
             payload.sender_id not in self.validators
             and payload.sender_id != self.node_id
@@ -196,12 +212,12 @@ class Validator(Blockchain):
             self.validators[payload.sender_id] = peer
 
         # if we have received the minimum expected announcements, start a grace period
-        if len(self.stake_registration) >= ceil(
+        if len(self.stake_registration) - 1 >= ceil(
             len(self.validators) * factor_non_byzantine
-        ):
+        ):  # minus 1 on stake_registration because that includes ourselves
             if self.election_phase == "announce_grace":
                 self.cancel_pending_task("election_announce_participation_grace_period")
-            # after the grace period, announce the winner
+            # after the grace period, figure out the winner
             self.election_phase = "announce_grace"
             self.register_task(
                 "election_announce_participation_grace_period",
@@ -215,7 +231,7 @@ class Validator(Blockchain):
         assert self.election_phase == "announce_grace"
         self.election_phase = "elect"
         print(
-            f"Node {self.node_id} Election {self.election_round} phase: {self.election_phase}"
+            f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase}"
         )
         # TODO
         winner_id = -1
