@@ -165,6 +165,7 @@ class Validator(Blockchain):
         print(
             f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase} started by {origin_id}"
         )
+        self.election_winner_id = None
         stake = round(self.available_stake * 0.5)
         self.stake_registration[self.node_id] = stake
         message = AnnounceConcensusParticipation(
@@ -228,8 +229,11 @@ class Validator(Blockchain):
             )
             print(f"Node {self.node_id} Election phase: {self.election_phase}")
 
+    def election_select_winner(self):
+        """Calculates the election winner."""
+
     def election_announce_winner(self):
-        """Calculates and broadcasts the election winner."""
+        """Broadcasts the election winner."""
         assert self.election_phase == "announce_grace"
         self.election_phase = "elect"
         # print(
@@ -290,9 +294,11 @@ class Validator(Blockchain):
         assert self.election_phase == "elect_grace"
         self.election_phase = "ratify"
         # TODO
-        # self.election_last_winner =
+
+        # prepare the variables for a next election
         self.election_phase = "none"
         self.election_random_seed = None
+        self.stake_registration = {}
         self.election_round += 1
 
     @message_wrapper(Gossip)
