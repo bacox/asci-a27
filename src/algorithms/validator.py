@@ -339,6 +339,7 @@ class Validator(Blockchain):
         # broadcast the election result and number of validators
         message = AnnounceConcensusWinner(
             self.election_round,
+            self.node_id,
             self.election_winner_id,
             self.election_random_seed,
             len(self.validators),
@@ -408,12 +409,25 @@ class Validator(Blockchain):
         self.election_phase = "ratify"
 
         # for each result received, check if it confirms our findings
-
-        # if we have received less than f contradictory results, the leader is known
-
-        # if more than f contradictory results are received, a new election must be started
-        self.election_round += 1
-        self.start_election()
+        valid = 0
+        for key, payload in self.result_registration.items():
+            if (
+                payload.sender_id == key
+                and payload.election_round == self.election_round
+                and payload.winner_id == self.election_winner_id
+                and payload.random_seed == self.election_random_seed
+                and payload.number_of_validators == len(self.validators)
+            ):
+                valid += 1
+            else:
+                print(
+                    f" [V{self.node_id}] Election result of {key} does not match ours"
+                )
+                print(
+                    f"Ours: {self.election_round=}, {self.election_winner_id=}, {self.election_random_seed=}, {len(self.validators)=}"
+                )
+                print("Theirs:")
+                print(payload)
 
         # prepare the variables for a next election
         self.election_phase = "none"
@@ -421,6 +435,12 @@ class Validator(Blockchain):
         self.stake_registration = {}
         self.result_registration = {}
         self.election_round += 1
+
+        # if less than N-f contradictory results are received, a new election must be started
+        if valid < ceil(len(self.validators) * factor_non_byzantine):
+            self.election_round += 1
+            self.election_winner_id = None
+            self.start_election()
 
     def finalize_block(self, block: Block):
         print("Finalizing block")

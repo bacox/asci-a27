@@ -56,6 +56,7 @@ class AnnounceConcensusWinner:
     """A message to announce a validator as the election winner, with validation."""
 
     election_round: int
+    sender_id: int
     winner_id: int
     random_seed: int  # TODO check if this is even necessary
     number_of_validators: int
@@ -72,12 +73,14 @@ class BlockHeader:
     def create_hash(self) -> None:
         self.hash = create_hash(self)
 
+
 @dataclass(msg_id=6)
 class Block:
     block_height: int
     prev_block_hash: bytes
     timestamp: int
     transactions: [TransactionBody]
+
 
 @dataclass(msg_id=7)
 class BlockVote:
