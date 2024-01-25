@@ -106,7 +106,7 @@ class Validator(Blockchain):
         #     "execute_transactions", self.execute_transactions, delay=4, interval=3
         # )
 
-        self.register_task("act_leader", self.act_leader, delay=5, interval=2)
+        # self.register_task("act_leader", self.act_leader, delay=5, interval=2)
         self.register_task(
             "send_buffered_transactions",
             self.send_buffered_transactions,
@@ -172,7 +172,7 @@ class Validator(Blockchain):
             return False
 
     def act_leader(self):
-        if self.node_id != 0:
+        if self.node_id != self.election_winner_id:
             return
         if self.active_block_proposal:
             return
@@ -438,9 +438,18 @@ class Validator(Blockchain):
 
         # if less than N-f contradictory results are received, a new election must be started
         if valid < ceil(len(self.validators) * factor_non_byzantine):
+            print(
+                f"[V{self.node_id}] Failed to ratify election {valid=} out of {ceil(len(self.validators) * factor_non_byzantine)}"
+            )
             self.election_round += 1
             self.election_winner_id = None
             self.start_election()
+        else:
+            print(
+                f"[V{self.node_id}] Ratified election: {self.election_winner_id} is leader"
+            )
+            if self.node_id == self.election_winner_id:
+                self.act_leader()
 
     def finalize_block(self, block: Block):
         print("Finalizing block")
