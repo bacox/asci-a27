@@ -45,7 +45,7 @@ class Gossip:
 class AnnounceConcensusParticipation:
     """A message to announce the election participation of a validator."""
 
-    election_number: int
+    election_round: int
     sender_id: int
     stake: int
 
@@ -54,7 +54,7 @@ class AnnounceConcensusParticipation:
 class AnnounceConcensusWinner:
     """A message to announce a validator as the election winner, with validation."""
 
-    election_number: int
+    election_round: int
     winner_id: int
     random_seed: int  # TODO check if this is even necessary
     number_of_validators: int

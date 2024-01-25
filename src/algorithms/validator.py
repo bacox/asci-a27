@@ -1,15 +1,32 @@
-from typing import List
 from time import time
+from math import ceil
+
+from threading import RLock
+from collections import defaultdict
 
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
-from collections import defaultdict
 
 from da_types import Blockchain, message_wrapper
-from .messages import Announcement, TransactionBody, Gossip, BlockHeader
-from threading import RLock
+from .messages import (
+    Announcement,
+    TransactionBody,
+    Gossip,
+    AnnounceConcensusParticipation,
+    AnnounceConcensusWinner,
+)
 
+# parameters
 starting_balance = 1000
+factor_non_byzantine = 0.66
+election_phases = (
+    "none",
+    "announce",
+    "announce_grace",
+    "elect",
+    "elect_grace",
+    "ratify",
+)
 
 
 class Validator(Blockchain):
@@ -31,9 +48,16 @@ class Validator(Blockchain):
         self.receive_lock = RLock()
 
         # elections
-        self.time_since_election = int(time())
-        self.in_elections = False
+        self.election_round = 1
+        self.election_phase = "none"
+        self.time_since_election = int(time())  # time since last succesful election
         self.available_stake = 100
+        self.stake_registration = {}  # dict of validatorID : stake
+        self.election_last_winner = -1
+        self.election_announcement_grace_period = (
+            1  # the grace period duration in seconds
+        )
+        self.election_winner_grace_period = 1
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
@@ -70,13 +94,6 @@ class Validator(Blockchain):
             print(f"{self.clients=}")
             self.buffered_transactions.append(transaction)
             # self.ez_send(peer, transaction)
-
-    # TODO implement concensus system
-
-    # def check_tx(self):
-    #     """Temporary function to execute"""
-    #     for tx in self.pending_transactions:
-    #         self.execute_transaction(tx)
 
     # TODO only execute if we have block finality
     def execute_transactions(self):
@@ -119,6 +136,114 @@ class Validator(Blockchain):
 
             print(f"Sending {len(self.buffered_transactions)=}")
             self.buffered_transactions = []
+
+    def start_election(self):
+        """Starts an election by broadcasting an announcement."""
+        if self.election_phase != "none":
+            return
+        self.election_announce()
+
+    def election_announce(self):
+        """Broadcasts election participation."""
+        self.election_phase = "announce"
+        stake = self.available_stake * 0.5
+        message = AnnounceConcensusParticipation(
+            self.election_round, self.node_id, stake
+        )
+        for validator in self.validators.values():
+            self.ez_send(validator, message)
+
+    @message_wrapper(AnnounceConcensusParticipation)
+    async def on_election_announcement(
+        self, peer: Peer, payload: AnnounceConcensusParticipation
+    ):
+        """When an election participation is received, save the result."""
+
+        # check whether we're not already in an election
+        if self.election_phase not in ("none", "elect", "elect_grace"):
+            return
+
+        # check whether this is a valid election round
+        if payload.election_round < self.election_round:
+            print(
+                f"Ignoring received old election announcement (round {payload.election_round=}<{self.election_round=})"
+            )
+            return
+        elif payload.election_round > self.election_round:
+            self.election_round = payload.election_round
+
+        # send our own participation if not done yet
+        if self.election_phase == "none":
+            self.election_announce()
+
+        # save the results
+        self.stake_registration[payload.sender_id] = payload.stake
+        if payload.sender_id not in self.validators:
+            self.validators[payload.sender_id] = peer
+
+        # if we have received the minimum expected announcements, start a grace period
+        if len(self.stake_registration) >= ceil(
+            len(self.validators) * factor_non_byzantine
+        ):
+            if self.election_phase == "announce_grace":
+                self.cancel_pending_task("election_announce_participation_grace_period")
+            # after the grace period, announce the winner
+            self.election_phase = "announce_grace"
+            self.register_task(
+                "election_announce_participation_grace_period",
+                self.election_announce_winner,
+                delay=self.election_announcement_grace_period,
+            )
+
+    def election_announce_winner(self):
+        """Calculates and broadcasts the election winner."""
+        assert self.election_phase == "announce_grace"
+        self.election_phase = "elect"
+        # TODO
+        winner_id = -1
+        random_seed = -1
+
+        # broadcast the winner
+        message = AnnounceConcensusWinner(
+            self.election_round, winner_id, random_seed, len(self.validators)
+        )
+        for validator in self.validators.values():
+            self.ez_send(validator, message)
+
+    @message_wrapper(AnnounceConcensusWinner)
+    async def on_election_result(self, peer: Peer, payload: AnnounceConcensusWinner):
+        """When an election winner is received, verify it."""
+        # TODO
+        # verify the incoming
+
+        # if it is not valid, cancel the grace and start a new election round
+        if self.election_phase == "elect_grace":
+            self.cancel_pending_task("election_announce_winner_grace_period")
+        self.election_round += 1
+        self.start_election()
+
+        # if we have received the minimum expected announcements, start a grace period
+        if len(self.stake_registration) >= ceil(
+            len(self.validators) * factor_non_byzantine
+        ):
+            if self.election_phase == "elect_grace":
+                self.cancel_pending_task("election_announce_winner_grace_period")
+            # after the grace period, announce the winner
+            self.election_phase = "elect_grace"
+            self.register_task(
+                "election_announce_winner_grace_period",
+                self.election_ratify,
+                delay=self.election_winner_grace_period,
+            )
+
+    def election_ratify(self):
+        """If no contradictory results have been received, ratify the election outcome."""
+        assert self.election_phase == "elect_grace"
+        self.election_phase = "ratify"
+        # TODO
+        # self.election_last_winner =
+        self.election_phase = "none"
+        self.election_round += 1
 
     @message_wrapper(Gossip)
     async def on_gossip(self, peer: Peer, payload: Gossip) -> None:
