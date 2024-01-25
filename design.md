@@ -22,11 +22,8 @@
    8. Each validator broadcasts their election result and their number of validators. 
    9. Each validator receives the election results, and forwards the result to all but the sender.
    10. After N-f results have been received, wait for a grace period to receive additional ones. 
-   11. If more than f contradictory results are received, a new election must be started. 
-   12. The elected leader 
-   13. The elected leader waits to receive their number of other validators' confirmation messages:
-      1. If they do not include contradictory information, the leader proposes a block. 
-      2. If there is contradictory information, the leader can not propose a new block and a new election is called. 
+   11. After this grace period, if more than f contradictory results are received, a new election must be started. If this is not the case, the elected leader is known. 
+   12. The leader can propose a new block. 
 
 ## Limitations
 

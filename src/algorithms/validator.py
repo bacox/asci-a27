@@ -57,6 +57,7 @@ class Validator(Blockchain):
         self.time_since_election = int(time())  # time since last succesful election
         self.available_stake = 100
         self.stake_registration = {}  # dict of validatorID : stake
+        self.result_registration = {}  # dict of winnerID : payload
         self.election_random_seed = None
         self.election_winner_id = None
         self.election_announcement_grace_period = (
@@ -229,12 +230,10 @@ class Validator(Blockchain):
             )
             print(f"Node {self.node_id} Election phase: {self.election_phase}")
 
-    def election_select_winner(self):
-        """Calculates the election winner."""
-
     def election_announce_winner(self):
-        """Broadcasts the election winner."""
+        """Calculates and broadcasts the election winner."""
         assert self.election_phase == "announce_grace"
+        self.cancel_pending_task("election_announce_participation_grace_period")
         self.election_phase = "elect"
         # print(
         #     f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase}"
@@ -254,18 +253,17 @@ class Validator(Blockchain):
         )
 
         # broadcast the election result and number of validators
-        # TODO
-
-        # TODO enable to continue after announcement phase
-        # # broadcast the winner
-        # message = AnnounceConcensusWinner(
-        #     self.election_round, winner_id, random_seed, len(self.validators)
-        # )
-        # self.broadcast(message, self.my_peer, validators=True, clients=False)
+        message = AnnounceConcensusWinner(
+            self.election_round,
+            self.election_winner_id,
+            self.election_random_seed,
+            len(self.validators),
+        )
+        self.broadcast(message, self.my_peer, validators=True, clients=False)
 
     @message_wrapper(AnnounceConcensusWinner)
     async def on_election_result(self, peer: Peer, payload: AnnounceConcensusWinner):
-        """When an election winner is received, verify it."""
+        """When an election winner is received, store it for verification."""
         # TODO
         # verify the incoming
 
@@ -292,13 +290,20 @@ class Validator(Blockchain):
     def election_ratify(self):
         """If no contradictory results have been received, ratify the election outcome."""
         assert self.election_phase == "elect_grace"
+        self.cancel_pending_task("election_announce_winner_grace_period")
         self.election_phase = "ratify"
-        # TODO
+
+        # for each result received, check if it confirms our findings
+
+        # if we have received less than f contradictory results, the leader is known
+
+        # if more than f contradictory results are received, a new election must be started
 
         # prepare the variables for a next election
         self.election_phase = "none"
         self.election_random_seed = None
         self.stake_registration = {}
+        self.result_registration = {}
         self.election_round += 1
 
     @message_wrapper(Gossip)
