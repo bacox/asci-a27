@@ -31,7 +31,7 @@ from .messages import (
 )
 
 # parameters
-starting_balance = 1000
+starting_balance = 10000
 block_width = 5
 factor_non_byzantine = 0.66
 early_election_minimum_transactions = (
@@ -78,9 +78,9 @@ class Validator(Blockchain):
         self.election_random_seed = None
         self.election_winner_id = None
         self.election_announcement_grace_period = (
-            5  # the grace period duration in seconds
+            2  # the grace period duration in seconds
         )
-        self.election_winner_grace_period = 5
+        self.election_winner_grace_period = 2
 
         # register the handlers
         self.add_message_handler(Gossip, self.on_gossip)
@@ -113,7 +113,7 @@ class Validator(Blockchain):
             delay=4,
             interval=3,
         )
-        self.register_task("election_timer", self.start_election, delay=30, interval=30)
+        self.register_task("election_timer", self.start_election, delay=8, interval=30)
 
     def init_transaction(self):
         """The init transactions are executed after the announcements have been completed."""
@@ -268,7 +268,7 @@ class Validator(Blockchain):
         # check whether we're able to receive participations
         if self.election_phase not in ("none", "announce", "announce_grace"):
             print(
-                f"[V{self.node_id}] received election participation from {payload.sender_id}, but is already in phase {self.election_phase}, ignoring"
+                f"[V{self.node_id}] received election participation from {payload.sender_id}, but is in phase {self.election_phase}, ignoring"
             )
             return
 
@@ -301,10 +301,11 @@ class Validator(Blockchain):
         if len(self.stake_registration) - 1 >= ceil(
             len(self.validators) * factor_non_byzantine
         ):  # minus 1 on stake_registration because that includes ourselves
-            if self.election_phase == "announce_grace":
-                self.cancel_pending_task("election_announce_participation_grace_period")
             # after the grace period, figure out the winner
             self.election_phase = "announce_grace"
+            # cancel pending tasks to avoid double execution, like a barrier
+            self.cancel_pending_task("election_announce_participation_grace_period")
+            self.cancel_pending_task("election_announce_winner_grace_period")
             self.register_task(
                 "election_announce_participation_grace_period",
                 self.election_announce_winner,
@@ -314,10 +315,10 @@ class Validator(Blockchain):
 
     def election_announce_winner(self):
         """Calculates and broadcasts the election winner."""
-        assert self.election_phase == "announce_grace"
-        self.cancel_pending_task(
-            "election_announce_participation_grace_period"
-        )  # cancel to avoid double execution
+        assert self.election_phase not in ("none", "ratify"), f"{self.election_phase=}"
+        # cancel pending tasks to avoid double execution, like a barrier
+        self.cancel_pending_task("election_announce_participation_grace_period")
+        self.cancel_pending_task("election_announce_winner_grace_period")
         self.election_phase = "elect"
         # print(
         #     f" [V{self.node_id}] Election {self.election_round} phase: {self.election_phase}"
@@ -351,10 +352,10 @@ class Validator(Blockchain):
         """When an election winner is received, store it for verification."""
         print(f" [V{self.node_id}] received election result from {payload.sender_id}:")
 
-        # check whether we're able to receive participations
-        if self.election_phase not in ("elect", "elect_grace"):
+        # check whether we're able to receive results
+        if self.election_phase in ("none", "ratify"):
             print(
-                f"[V{self.node_id}] received election participation from {payload.sender_id}, but is in phase {self.election_phase}, ignoring"
+                f"[V{self.node_id}] received election result from {payload.sender_id}, but is in phase {self.election_phase}, ignoring"
             )
             return
 
@@ -388,8 +389,9 @@ class Validator(Blockchain):
         if len(self.result_registration) >= ceil(
             len(self.validators) * factor_non_byzantine
         ):
-            if self.election_phase == "elect_grace":
-                self.cancel_pending_task("election_announce_winner_grace_period")
+            # cancel pending tasks to avoid double execution, like a barrier
+            self.cancel_pending_task("election_announce_participation_grace_period")
+            self.cancel_pending_task("election_announce_winner_grace_period")
             # after the grace period, ratify the results
             self.election_phase = "elect_grace"
             self.register_task(
@@ -400,12 +402,15 @@ class Validator(Blockchain):
 
     def election_ratify(self):
         """If no contradictory results have been received, ratify the election outcome."""
-        assert (
-            self.election_phase == "elect_grace" and self.election_winner_id is not None
-        )
-        self.cancel_pending_task(
-            "election_announce_winner_grace_period"
-        )  # cancel to avoid double execution
+        # assert self.election_phase in (
+        #     "elect",
+        #     "elect_grace",
+        # ), f"{self.election_phase=}"
+        assert self.election_winner_id is not None
+
+        # cancel pending tasks to avoid double execution, like a barrier
+        self.cancel_pending_task("election_announce_participation_grace_period")
+        self.cancel_pending_task("election_announce_winner_grace_period")
         self.election_phase = "ratify"
 
         # for each result received, check if it confirms our findings
