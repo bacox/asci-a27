@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 from ipv8.community import CommunitySettings
 from ipv8.types import Peer
 
@@ -8,6 +8,10 @@ from .messages import Announcement, TransactionBody
 
 from binascii import hexlify, unhexlify
 
+
+client_start_id = 2
+num_clients = 2
+all_clients = [x + client_start_id for x in range(num_clients)]
 
 def to_hex(bstr: bytes) -> str:
     return hexlify(bstr).decode()
@@ -26,10 +30,13 @@ class Client(Blockchain):
         self.validators = []
         self.local_balance = 0
         self.send_counter = 0
+        self.address_book = all_clients
         self.add_message_handler(TransactionBody, self.on_transaction)
 
     def on_start(self):
         # start by announcing ourselves to our only known validator
+        self.address_book.remove(self.node_id)
+
         self.validators = list(self.nodes.keys())
         peer = self.nodes[self.validators[0]]
         self.ez_send(peer, Announcement(self.node_id, True))
@@ -39,7 +46,7 @@ class Client(Blockchain):
         self.register_task(
             "random_tx",
             self.send_amount,
-            delay=randint(2, 4),
+            delay=randint(3, 4),
             interval=randint(2, 4),
         )
 
@@ -52,11 +59,12 @@ class Client(Blockchain):
 
     def send_amount(self, target_id: int = None, amount: int = None):
         """Send some to a target. If target and amount are not specified, make it random."""
-        print(f"[C{self.node_id}] Triggering client send {self.local_balance=}")
+        # print(f"[C{self.node_id}] Triggering client send {self.local_balance=}")
         if target_id is None:
-            target_id = int(
-                self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
-            )
+            target_id = choice(self.address_book)
+            # target_id = int(
+            #     self.node_id + 1 if self.node_id % 1 == 0 else self.node_id - 1
+            # )
         if amount is None:
             amount = randint(1, 100)
         if amount <= self.local_balance and self.node_id != target_id:
@@ -66,7 +74,12 @@ class Client(Blockchain):
             self.send_counter += 1
             for validator in self.validators:
                 self.ez_send(self.nodes[validator], transaction)
-                print(f"[Client {self.node_id}] sent TX to node {target_id}")
+                # print(
+                #     f"[C{self.node_id}] sent TX to node {target_id}"
+                # )
+        else:
+            # print(f'[C{self.node_id}] Unable to send amount, state: {self.local_balance=}, {amount=}, {target_id=}')
+            pass
 
     # def request_balance(self):
 
@@ -83,14 +96,16 @@ class Client(Blockchain):
         # print(
         #     f"[Node {self.node_id}] Got a message from node: {sender_id}.\t msg id: {payload.message_id}"
         # )
-        print(f"[C{self.node_id}] Got a TX {transaction=}")
-        if transaction.target_id == self.node_id and transaction not in self.history:
+        # print(f"[C{self.node_id}] Got a TX {transaction=}")
+        if (transaction.target_id == self.node_id or transaction.sender_id == self.node_id) and transaction not in self.history:
             # add transaction to history
             self.history.append(transaction)
 
             if transaction.target_id == self.node_id:
                 # add amount to balance
                 self.local_balance += transaction.amount
+                print(f'[C{self.node_id}] Action=incrementing {transaction.amount=} Balance = {self.local_balance}')
             elif transaction.sender_id == self.node_id:
                 # deduct from balance
                 self.local_balance -= transaction.amount
+                print(f'[C{self.node_id}] Action=deducting {transaction.amount=} Balance = {self.local_balance}')
