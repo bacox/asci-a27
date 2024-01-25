@@ -102,7 +102,7 @@ class Validator(Blockchain):
         transactions = self.pending_transactions.copy()
         self.pending_transactions = []
         # print(f'Executing {len(transactions)} -> {transactions}')
-        for transaction in transactions:         
+        for transaction in transactions:
             if transaction.sender_id == -1:
                 self.balances[transaction.target_id] += transaction.amount
                 print(f"Executing special {transaction=}")
@@ -114,7 +114,9 @@ class Validator(Blockchain):
                 # print(
                 #     f"Sender {transaction.sender_id} has insuffienct funds to give {transaction.amount} to {transaction.target_id}"
                 # )
-                print(f'Reinsert tx {transaction=} into pending ({len(self.pending_transactions)})')
+                print(
+                    f"Reinsert tx {transaction=} into pending ({len(self.pending_transactions)})"
+                )
                 self.pending_transactions.append(transaction)
 
             # send transaction to target client
@@ -135,14 +137,13 @@ class Validator(Blockchain):
 
             # bundle the valid transactions in a gossip and send it on the network
             gossip_message = Gossip(self.buffered_transactions)
-            for peer in self.validators.values():
-                self.ez_send(peer, gossip_message)
+            self.broadcast(gossip_message, self.my_peer, validators=True, clients=False)
 
             # print(f"Sending {len(self.buffered_transactions)} buffered transactions")
             self.buffered_transactions = []
 
     def start_election(self):
-        """Starts an election by broadcasting an announcement."""
+        """Starts an election."""
         if self.election_phase != "none":
             return
         self.election_announce()
@@ -154,8 +155,7 @@ class Validator(Blockchain):
         message = AnnounceConcensusParticipation(
             self.election_round, self.node_id, stake
         )
-        for validator in self.validators.values():
-            self.ez_send(validator, message)
+        self.broadcast(message, self.my_peer, validators=True, clients=False)
 
     @message_wrapper(AnnounceConcensusParticipation)
     async def on_election_announcement(
@@ -182,7 +182,10 @@ class Validator(Blockchain):
 
         # save the results
         self.stake_registration[payload.sender_id] = payload.stake
-        if payload.sender_id not in self.validators:
+        if (
+            payload.sender_id not in self.validators
+            and payload.sender_id != self.node_id
+        ):
             self.validators[payload.sender_id] = peer
 
         # if we have received the minimum expected announcements, start a grace period
@@ -211,8 +214,7 @@ class Validator(Blockchain):
         message = AnnounceConcensusWinner(
             self.election_round, winner_id, random_seed, len(self.validators)
         )
-        for validator in self.validators.values():
-            self.ez_send(validator, message)
+        self.broadcast(message, self.my_peer, validators=True, clients=False)
 
     @message_wrapper(AnnounceConcensusWinner)
     async def on_election_result(self, peer: Peer, payload: AnnounceConcensusWinner):
@@ -262,12 +264,10 @@ class Validator(Blockchain):
                 self.pending_transactions.append(tx)
                 to_gossip.append(tx)
 
+        # broadcast the gossip
         if len(to_gossip) > 0:
-            gossip_obj = Gossip(to_gossip)
-            for val in self.validators.values():
-                if val == peer:
-                    continue
-                self.ez_send(val, gossip_obj)
+            gossip_message = Gossip(to_gossip)
+            self.broadcast(gossip_message, peer, validators=True, clients=False)
 
         # if payload.message_id is None:
         #     print(f"Received Gossip without message ID from {peer}")
@@ -291,20 +291,20 @@ class Validator(Blockchain):
                     0 if sender_id not in self.balances else self.balances[sender_id]
                 )
                 # broadcast the announcement so other validators get the client as well
-                for val in self.validators.values():
-                    self.ez_send(val, payload)
-
-        else:
+                self.broadcast(payload, peer, validators=True, clients=False)
+        elif sender_id != self.node_id:
             self.validators[sender_id] = peer
 
-        if (self.node_id == 0 and
-            len(self.validators) + len(self.clients) >= len(self.nodes)
+        if (
+            self.node_id == 0
+            and len(self.validators) + len(self.clients) >= len(self.nodes)
             and len(self.clients) > 0
             and not self.can_start
         ):
-            
             self.can_start = True
-            self.register_anonymous_task('init transaction', self.init_transaction, delay=2)
+            self.register_anonymous_task(
+                "init transaction", self.init_transaction, delay=2
+            )
             # self.init_transaction()
 
         # print(f'{len(self.validators) + len(self.clients) >= len(self.nodes)}')
@@ -337,3 +337,15 @@ class Validator(Blockchain):
 
             if self.is_new_transaction(payload):
                 self.buffered_transactions.append(payload)
+
+    def broadcast(self, payload, originator: Peer, validators=True, clients=True):
+        """Utility function to broadcast a message to a selection of nodes."""
+        if validators:
+            # use set of validator peers to make sure we don't send to the same peers
+            for validator in set(self.validators.values()):
+                if validator is not originator and validator is not self.my_peer:
+                    self.ez_send(validator, payload)
+        if clients:
+            for client in set(self.clients.values()):
+                if client is not originator and client is not self.my_peer:
+                    self.ez_send(client, payload)
