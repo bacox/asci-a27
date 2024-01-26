@@ -28,3 +28,13 @@
 ## Limitations
 
 1. If a validator joins the network after the first election, its election round number is mismatched, so it can not propose a new election. 
+
+## Message complexity
+
+We will use C for number of clients, V for number of validators, and N for C+V. 
+Message complexity is defined from the perspective of a single transaction. 
+1. Client-validator transaction passing: 1 message to send a transaction to a validator, 1 message to receive a balance update from a validator. 
+2. Validator-validator transaction gossiping: transactions are batched and broadcast by every validator. In the worst case where we only have a single transaction in a gossip message, we have V-1^2 messages, best case V-1.  
+3. Elections: worst case of announcement / participation is 2^V-1, as every validator must communicate to all other validators that it participates. We have again 2^V-1 for the communication of results to ratify the election. 
+4. Block communication: leader proposes block containing multiple transactions, worst case is again V-1^2, best case V-1. 
+If we do big-O style and keep only the worst complexity, the worst case for a single transaction is that 2(2^V-1). 
